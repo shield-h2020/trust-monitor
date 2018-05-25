@@ -1,0 +1,12 @@
+manifest:vnsf:
+    type: OSM
+    package: centos_pong_vnfd.tar.gz
+    descriptor: centos_pong_vnfd/centos_pong_vnfd.yaml
+    properties:
+        vendor: some vendor name
+        capabilities: ['Virtual OS centos:7']
+    security_info:
+        vdu:
+          - id: centos_pong_vnfd-VM
+            hash_alg: SHA1
+            attestation:

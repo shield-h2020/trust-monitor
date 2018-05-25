@@ -1,0 +1,13 @@
+manifest:vnsf:
+    type: OSM
+    package: centos_ping_vnfd.tar.gz
+    descriptor: centos_ping_vnfd/centos_ping_vnfd.yaml
+    properties:
+        vendor: some vendor name
+        capabilities: ['Dummy vNSF']
+    security_info:
+        vdu:
+          - id: centos_ping_vnfd-VM
+            hash_alg: SHA1
+            attestation:
+               /home/test.sh: abdc0c45af71d5b06912f1d901cd78b5e1a3edc6

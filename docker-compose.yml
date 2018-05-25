@@ -1,0 +1,74 @@
+version: '3'
+
+services:
+
+  tm_rabbitmq_server:
+    image: ra/connectors/rabbitmq_server
+    build: ./connectors/dashboard_connector/server-rabbitmq
+
+  tm_dashboard_connector:
+    image: ra/connectors/dashboard_connector
+    build: ./connectors/dashboard_connector
+    links:
+      - tm_rabbitmq_server:rabbitmq_server
+
+  tm_dare_connector:
+    image: ra/connectors/dare_connector
+    build: ./connectors/dare_connector
+
+  tm_manage_osm_connector:
+    image: ra/connectors/manage_osm_connector
+    build: ./connectors/manage_osm_connector
+    extra_hosts:
+      - "osm-r3:xxx.xxx.xxx.xxx"
+
+  tm_store_connector:
+    image: ra/connectors/store_connector
+    build: ./connectors/store_connector
+
+  tm_database_redis:
+    image: ra/connectors/redis
+    build: ./connectors/database
+
+
+  reverse_proxy:
+    image: ra/trust_monitor/reverse_proxy
+    build: ./reverseProxy
+    depends_on:
+      - tm_django_app
+    links:
+      - tm_django_app:tm_django_app
+      - tm_static_serve:tm_static_serve
+    volumes:
+      - './reverseProxy/ssl:/etc/ssl:ro'
+    # Configure volume to export logs
+    # - './logs/reverse_proxy:/var/log/nginx'
+    ports:
+      - 80:80
+      - 443:443
+
+  tm_django_app:
+    image: ra/trust_monitor/tm_django_app
+    build: ./trustMonitor
+    environment:
+      - RUN_DJANGO_APP=1
+    depends_on:
+      - tm_static_serve
+    extra_hosts:
+      - "ra-oat-verifier:xxx.xxx.xxx.xxx"
+    links:
+      - tm_dare_connector:tm_dare_connector
+      - tm_dashboard_connector:tm_dashboard_connector
+      - tm_manage_osm_connector:tm_manage_osm_connector
+      - tm_store_connector:tm_store_connector
+      - tm_database_redis:tm_database_redis
+    # Configure volume to export logs
+    volumes:
+    # - './logs/tm_django_app:/logs'
+      - './trustMonitor/docker/db:/db'
+
+  tm_static_serve:
+    image: ra/trust_monitor_tm_static_serve
+    build: ./trustMonitor
+    environment:
+      - SERVE_STATIC=1

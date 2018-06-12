@@ -12,7 +12,8 @@ class HostSerializer(serializers.ModelSerializer):
                   'address',
                   'pcr0',
                   'distribution',
-                  'analysisType')
+                  'analysisType',
+                  'driver')
 
 
 class ResultSerializer(serializers.Serializer):

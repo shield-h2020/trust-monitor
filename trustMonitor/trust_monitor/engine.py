@@ -12,10 +12,10 @@ import redis
 import pycassa
 from trust_monitor.verifier.structs import *
 from rest_framework.response import Response
+from trust_monitor_driver.driverOAT import DriverOAT
 
-if (settings.ATTESTATION_FRAMEWORK == 'OAT'):
-    from trust_monitor_driver.driverOAT import Driver
-    driver = Driver()
+
+driver_oat = DriverOAT()
 
 headers = {'content-type': 'application/json'}
 distCassandra = settings.CASSANDRA_LOCATION
@@ -156,7 +156,7 @@ def call_poll_host(node_list):
     logger.info('Call pollHost method used to perform the attestation')
     if node_list:
         logger.info('List to be sent to pollHost %s' % str(node_list))
-        value = driver.pollHost(node_list)
+        value = driver_oat.pollHost(node_list)
         return value
     else:
         errorHost = {'Error': 'list to be sent to pollHost are empty'}
@@ -249,11 +249,16 @@ def attest_node(list_node):
             logger.debug('Verify if node is in trust_monitor')
             host = Host.objects.get(hostName=node['node'])
             logger.debug('Node found with ip %s' % host.address)
-            if node['vnfs']:
-                logger.info('Add ip address to the list used to communicate'
-                            ' with OSM connector')
-                list_ip.append(host.address)
-            node_list.append(node)
+            if host.driver == 'OAT':
+                if node['vnfs']:
+                    logger.info('Add ip address to the list used to'
+                                ' communicate with OSM connector')
+                    list_ip.append(host.address)
+                node_list.append(node)
+            else:
+                errorHost = {'Error node: %s' % host.hostName:
+                             'driver not is OAT'}
+                logger.warning(errorHost)
         except ObjectDoesNotExist as objDoesNotExist:
             errorHost = {'Error node not registred with trust_monitor':
                          node['node']}
@@ -298,6 +303,10 @@ def attest_single_node(node):
         logger.debug('Verify if node is in trust_monitor')
         host = Host.objects.get(hostName=node)
         logger.debug('Node found with ip %s' % host.address)
+        if host.driver != 'OAT':
+            errorHost = {'Error node: %s' % node: 'driver not is OAT'}
+            logger.warning(errorHost)
+            return Response(errorHost, status=status.HTTP_403_FORBIDDEN)
         list_ip.append(host.address)
         logger.info('Use ip to get vim name')
         jsonListIP = {'ip': list_ip}

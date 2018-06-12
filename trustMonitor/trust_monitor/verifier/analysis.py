@@ -26,7 +26,7 @@ from graph import *
 from structs import *
 from util import *
 import logging
-from trust_monitor_driver.driverOAT import Driver
+from trust_monitor_driver.informationDigest import InformationDigest, MapDigest
 
 # Node types for information flow analysis
 SUBJ_TCB = 1
@@ -69,8 +69,8 @@ class LoadTimeAnalysis(Analysis):
 
         return edge_types
 
-    def __init__(self, conn, distro, graph, target='', tcb=[],
-                 results_dir='.', report_id=0):
+    def __init__(self, conn, distro, graph, informationDigest, target='',
+                 tcb=[], results_dir='.', report_id=0):
         Analysis.__init__(self, 'load-time')
         self.graph = graph
         self.target = target
@@ -91,7 +91,6 @@ class LoadTimeAnalysis(Analysis):
         self.n_packages_security = 0
         self.n_packages_not_security = 0
         self.n_packages_unknown = 0
-
         if len(target) > 0 and len([l for l in Subject.subj_label_dict.keys()
            if selinux_type(l) == target]) == 0:
             raise Exception('Target not found')
@@ -106,7 +105,8 @@ class LoadTimeAnalysis(Analysis):
                 digest_obj.severity_level = 'fake-lib'
                 self.n_digests_fake_lib += 1
                 logger.warning('Fake library %s' % digest_obj.digest_string)
-                Driver.list_fake_lib.append(digest_obj.digest_string)
+                informationDigest.list_fake_lib.append(
+                    digest_obj.digest_string)
                 continue
             if digest_obj.event_type == '':
                 digest_obj.severity_level = 'not-found'
@@ -122,9 +122,9 @@ class LoadTimeAnalysis(Analysis):
                 meas_prop = digest_obj.ima_records[0].entry['id-docker']
                 digestJson = {'Measure of': meas_prop,
                               fullpath: digest_obj.digest_string}
-                if meas_prop not in Driver.list_prop_not_found:
-                    Driver.list_prop_not_found.append(meas_prop)
-                Driver.list_not_found.append(digestJson)
+                if meas_prop not in informationDigest.list_prop_not_found:
+                    informationDigest.list_prop_not_found.append(meas_prop)
+                informationDigest.list_not_found.append(digestJson)
             if digest_obj.severity_level == 'not-found':
                 continue
 
@@ -157,14 +157,14 @@ class LoadTimeAnalysis(Analysis):
                         severity_level = update_type
         logger.debug('Number of all digest: %s' %
                      len(Digest.digests_dict.values()))
-        Driver.n_digests_ok = self.n_digests_ok
+        informationDigest.n_digests_ok = self.n_digests_ok
         logger.debug('Number of digest ok are: %s' % self.n_digests_ok)
         logger.debug('Number of digest fake lib are: %s'
                      % self.n_digests_fake_lib)
-        Driver.n_digests_fake_lib = self.n_digests_fake_lib
+        informationDigest.n_digests_fake_lib = self.n_digests_fake_lib
         logger.debug('Number of digest not found are: %s' %
                      self.n_digests_not_found)
-        Driver.n_digests_not_found = self.n_digests_not_found
+        informationDigest.n_digests_not_found = self.n_digests_not_found
         logger.info('See if the packages are ok or have some problems')
         for package_obj in Package.pkg_dict.values():
             if package_obj.severity_level == 'ok':
@@ -185,14 +185,17 @@ class LoadTimeAnalysis(Analysis):
         logger.debug('Total number of packages: %s' %
                      len(Package.pkg_dict.values()))
         logger.debug('Number packages ok: %s' % self.n_packages_ok)
-        Driver.n_packages_ok = self.n_packages_ok
+        informationDigest.n_packages_ok = self.n_packages_ok
         logger.debug('Number packages security: %s' % self.n_packages_security)
-        Driver.n_packages_security = self.n_packages_security
+        informationDigest.n_packages_security = self.n_packages_security
         logger.debug('Number packages unknown: %s' % self.n_packages_unknown)
-        Driver.n_packages_unknown = self.n_packages_unknown
+        informationDigest.n_packages_unknown = self.n_packages_unknown
         logger.debug('Number packages not security %s' %
                      self.n_packages_not_security)
-        Driver.n_packages_not_security = self.n_packages_not_security
+        informationDigest.n_packages_not_security = (
+            self.n_packages_not_security)
+        logger.info('Added informationDigest object to MapDigest')
+        MapDigest.mapDigest[InformationDigest.host] = informationDigest
 
     def propagate_errors(self, topic='code+data', target_subjs=None):
         LOAD_TIME_EDGES = self.edges_types_by_topic(topic)
@@ -413,14 +416,6 @@ class RunTimeAnalysis(Analysis):
         g.draw('%s/graph-run-time-%d.svg' % (self.results_dir, self.report_id),
                edge_types=self.RUN_TIME_EDGES, graph_edges=self.edges_list,
                clusters=clusters)
-
-    def view_statistics(self):
-        print('Statistics:')
-        print(' - %d conflicts: (%d TCB, %d target)' %
-              (len(self.r['o_tcb_conflict']) +
-               len(self.r['o_target_conflict']),
-               len(self.r['o_tcb_conflict']),
-               len(self.r['o_target_conflict'])))
 
 
 class ProcTransAnalysis(Analysis):

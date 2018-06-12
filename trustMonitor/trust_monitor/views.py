@@ -17,10 +17,11 @@ from django.core.exceptions import ObjectDoesNotExist
 from trust_monitor.engine import dare_connector, attest_single_node
 from trust_monitor.engine import manage_osm_vim_docker, attest_node
 from trust_monitor.engine import dashboard_connector, get_status_connectors
+from trust_monitor_driver.driverOAT import DriverOAT
+from trust_monitor_driver.informationDigest import InformationDigest
+from trust_monitor.verifier.parsingOAT import parsing
 
-if (settings.ATTESTATION_FRAMEWORK == 'OAT'):
-    from trust_monitor_driver.driverOAT import Driver
-    driver = Driver()
+driver_oat = DriverOAT()
 
 logger = logging.getLogger('django')
 
@@ -71,7 +72,8 @@ class RegisterNode(APIView):
 
         Args:
             json object {'hostName': '', 'address': '',
-                         'distribution': '', 'pcr0': ''}
+                         'distribution': '', 'pcr0': '', 'driver': '',
+                         'analysisType': ''}
         Return:
             - The host created
             - Message Error
@@ -82,38 +84,65 @@ class RegisterNode(APIView):
         if serializer.is_valid():
             logger.debug('Serialization of host is valide, the new node '
                          'have all information')
-            newHost = Host(hostName=request.data["hostName"],
-                           address=request.data["address"],
-                           pcr0=request.data["pcr0"],
-                           distribution=request.data["distribution"])
+            newHost = Host(hostName=serializer.data["hostName"],
+                           address=serializer.data["address"],
+                           driver=serializer.data['driver'])
+            try:
+                newHost.pcr0 = serializer.data["pcr0"]
+            except KeyError as ke:
+                logger.warning('Pcr0 not given')
+            try:
+                newHost.distribution = serializer.data["distribution"]
+            except KeyError as ke:
+                logger.warning('distribution not given')
+            try:
+                newHost.analysisType = serializer.data["analysisType"]
+            except KeyError as ke:
+                logger.warning('AnalysisType not given')
             logger.info('The information of the node are:')
             logger.info('Name: ' + newHost.hostName)
             logger.info('Address: ' + newHost.address)
             logger.info('Pcr0: ' + newHost.pcr0)
             logger.info('Distribution: ' + newHost.distribution)
+            logger.info('Driver attestation: ' + newHost.driver)
+            logger.info('AnalysisType: ' + newHost.analysisType)
             logger.info('Call driver to manage new host')
-            response = driver.registerNode(newHost)
-            logger.debug('Return from the driver:')
-            if (response.status_code == 200):
-                logger.debug('Response return a status_code = 200, host '
-                             'is created')
-                serializer.save()
-                logger.info('Save node in the database of Django')
+            if newHost.driver == 'OAT':
+                logger.info('Register node OAT')
+                response = driver_oat.registerNode(newHost)
+                logger.debug('Return from the driver:')
+                if (response.status_code == 200):
+                    logger.debug('Response return a status_code = 200, host '
+                                 'is created')
+                    serializer.save()
+                    logger.info('Save node in the database of Django')
+                    return Response(serializer.data,
+                                    status=status.HTTP_201_CREATED)
+                elif (response.status_code == 400):
+                    logger.error('Response return a status_code = 400, this '
+                                 'means that we received an error in the '
+                                 'attestation framework')
+                    logger.error(json.loads(response.text))
+                    return Response(json.loads(response.text),
+                                    status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    logger.error('Response has status_code = '
+                                 + str(response.status_code)
+                                 + ' with message: ' + str(response.data))
+                    return Response(response.data,
+                                    status=response.status_code)
+            elif newHost.driver == 'OpenCIT':
+                logger.info('Register node OpenCIT')
+                # add your function here and remove pass
+                # serializer.save()
+                logger.info('Save node in the Django db')
                 return Response(serializer.data,
                                 status=status.HTTP_201_CREATED)
-            elif (response.status_code == 400):
-                logger.error('Response return a status_code = 400, this '
-                             'means that we received an error in the '
-                             'attestation framework')
-                logger.error(json.loads(response.text))
-                return Response(json.loads(response.text),
-                                status=status.HTTP_400_BAD_REQUEST)
             else:
-                logger.error('Response has status_code = '
-                             + str(response.status_code)
-                             + ' with message: ' + str(response.data))
-                return Response(response.data,
-                                status=response.status_code)
+                error = {'error': 'Attestation driver not found impossible '
+                                  'add this node'}
+                logger.error(error)
+                return Response(error, status=status.HTTP_403_FORBIDDEN)
         else:
             logger.error('Serializaton generated an error ' +
                          str(serializer.errors))
@@ -155,11 +184,20 @@ class AttestNode(APIView):
             value_data = request
         serializer = NodeListSerializer(data=value_data)
         if serializer.is_valid():
-            node_list = value_data["node_list"]
+            node_list = serializer.data["node_list"]
             logger.debug('Serializaton of information passed of post '
                          'method are valide, the information are: '
                          + str(node_list))
             logger.debug('Call driver to manage the attest node')
+            if len(node_list) == 1:
+                node = node_list[0]
+                logger.debug('Search node: %s in the database of Django'
+                             % node['node'])
+                host = Host.objects.get(hostName=node['node'])
+                if host.driver == 'OpenCIT':
+                    logger.info('Attestation with OpenCIT')
+                    # add your function here
+            logger.info('Attestation with OAT')
             response = attest_node(node_list)
             if (type(response) != dict):
                 logger.error('Get object type response')
@@ -201,7 +239,7 @@ class StatusTrustMonitor(APIView):
         """
         logger.info('Trust Monitor works')
         logger.info('Call driver to verify if it works')
-        message = driver.getStatus()
+        message = driver_oat.getStatus()
         response = get_status_connectors(message)
         return Response(response.data, status=response.status_code)
 
@@ -228,20 +266,30 @@ class GetVerify(APIView):
         logger.info('API get_verify called by OAT.')
         serializer = VerificationValues(data=request.data)
         if serializer.is_valid():
-            distro = request.data["distribution"]
-            analysis = request.data["analysis"]
-            report_url = request.data["report_url"]
-            report_id = request.data["report_id"]
+            distro = serializer.data["distribution"]
+            analysis = serializer.data["analysis"]
+            report_url = serializer.data["report_url"]
+            report_id = serializer.data["report_id"]
             logger.debug('Serializaton of information passed of post '
                          'method are valide, the information are: \n'
                          'Distro: %s, Analysis: %s, Report_url: %s, '
                          'Report_id: %s', distro, analysis, report_url,
                          report_id)
-            logger.info('Call verifier method of RaVerifier')
+            infoDigest = InformationDigest()
+            check_containers = ''
+            logger.info('Call parsing method to get Digest')
+            res = parsing(analysis=analysis,
+                          checked_containers=check_containers,
+                          report_url=report_url, report_id=report_id,
+                          infoDigest=infoDigest)
+            if res == 2:
+                return Response(res, status=status.HTTP_400_BAD_REQUEST)
             ra_verifier = RaVerifier()
+            logger.info('Call verifier method of RaVerifier')
             result = ra_verifier.verifier(distro=distro, analysis=analysis,
-                                          report_id=report_id,
-                                          report_url=report_url)
+                                          infoDigest=infoDigest,
+                                          checked_containers=check_containers,
+                                          report_id=report_id)
             logger.debug('Return of method and result is: %s', result)
             if result is True:
                 result = 0
@@ -412,7 +460,7 @@ class Known_Digest(APIView):
             logger.info('See if the digest already exists in db')
             try:
                 digest_found = KnownDigest.objects.get(
-                    digest=request.data['digest'])
+                    digest=serializer.data['digest'])
                 logger.error('Digest already exists in the database')
                 jsonMessage = {'Digest %s' % request.data['digest']:
                                'already exists'}
@@ -464,7 +512,7 @@ class Known_Digest(APIView):
             logger.info('See if the digest already exists in db')
             try:
                 digest_found = KnownDigest.objects.get(
-                    digest=request.data['digest'])
+                    digest=serializer.data['digest'])
                 logger.info('Removed known digest %s %s',
                             digest_found.pathFile, digest_found.digest)
                 structs.removedKnown_digest(digest_found.digest)

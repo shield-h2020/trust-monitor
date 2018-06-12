@@ -10,7 +10,8 @@ from django.conf import settings
 import pycassa
 import redis
 from driver_setting import *
-from trust_monitor_driver.defineJson import JsonSingleHost, JsonListHost
+from trust_monitor_driver.defineJsonOAT import JsonSingleHost, JsonListHost
+from trust_monitor_driver.informationDigest import MapDigest, InformationDigest
 
 requests.packages.urllib3.disable_warnings()
 
@@ -22,37 +23,9 @@ jsonSingleHost = JsonSingleHost()
 jsonListHost = JsonListHost()
 
 
-class Driver():
-
-    list_not_found = []
-    list_fake_lib = []
-    n_digests_ok = 0
-    n_digests_not_found = 0
-    n_digests_fake_lib = 0
-    list_containers = ""
-    list_prop_not_found = []
-    # packages stats
-
-    n_packages_ok = 0
-    n_packages_security = 0
-    n_packages_not_security = 0
-    n_packages_unknown = 0
+class DriverOAT():
 
     headers = {'content-type': 'application/json'}
-
-    def clearAllStruct(self):
-        logger.debug('Clear all structures used by Driver OAT')
-        Driver.list_not_found = []
-        Driver.list_fake_lib = []
-        Driver.list_containers = ""
-        Driver.list_prop_not_found = []
-        Driver.n_digests_not_found = 0
-        Driver.n_digests_ok = 0
-        Driver.n_digests_fake_lib = 0
-        Driver.n_packages_ok = 0
-        Driver.n_packages_security = 0
-        Driver.n_packages_not_security = 0
-        Driver.n_packages_unknown = 0
 
     def registerNode(self, host):
         logger.info('In registerNode method of driverOAT')
@@ -240,13 +213,14 @@ class Driver():
                 logger.debug('Search node: ' + n['node']
                              + ' in the database of Django')
                 host = Host.objects.get(hostName=n['node'])
+                InformationDigest.host = n['node']
                 logger.info('Node found ' + host.hostName + ' with '
                             'this analysisType: ' + host.analysisType
                             + listvnf)
                 jsonAttest = {'hosts': [host.hostName],
                               'analysisType': host.analysisType + listvnf}
-                logger.debug('Define json object to be sent to OAT '
-                             'to perform attestation')
+                logger.debug('Define json object %s to be sent to OAT '
+                             'to perform attestation' % jsonAttest)
                 respo = requests.post(url, data=json.dumps(jsonAttest),
                                       headers=self.headers, verify=False)
                 jsonResponse = json.loads(respo.text)['hosts']
@@ -254,10 +228,11 @@ class Driver():
                     vtime = jsonElem['vtime']
                     if attest == 'trusted':
                         attest = jsonElem['trust_lvl']
-                jsonHost = self.createSingleJson(respo=respo)
+                jsonHost = self.createSingleJson(respo=respo, host=n['node'])
                 listResult.append(jsonHost)
                 logger.debug('New json object: %s', jsonHost)
-                self.clearAllStruct()
+                MapDigest.mapDigest = {}
+                InformationDigest.host = ''
             except ObjectDoesNotExist as objDoesNotExist:
                 errorHost = {'Error host not found': n['node']}
                 logger.error('Error: ' + str(errorHost))
@@ -275,20 +250,9 @@ class Driver():
                                                    trust_lvl=attest)
         return jsonAllNFVI
 
-    def createSingleJson(self, respo):
-        logger.info(Driver.list_containers)
+    def createSingleJson(self, respo, host):
         createJson = jsonSingleHost.defineSingleHost(
-                respo, list_fake_lib=Driver.list_fake_lib,
-                list_not_found=Driver.list_not_found,
-                n_digests_ok=Driver.n_digests_ok,
-                n_digests_fake_lib=Driver.n_digests_fake_lib,
-                n_digests_not_found=Driver.n_digests_not_found,
-                n_packages_ok=Driver.n_packages_ok,
-                n_packages_unknown=Driver.n_packages_unknown,
-                n_packages_security=Driver.n_packages_security,
-                n_packages_not_security=Driver.n_packages_not_security,
-                list_containers=Driver.list_containers,
-                list_prop_not_found=Driver.list_prop_not_found)
+                respo, MapDigest.mapDigest, host)
         return createJson
 
     def getStatus(self):

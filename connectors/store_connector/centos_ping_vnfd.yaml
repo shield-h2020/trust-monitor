@@ -4,7 +4,7 @@ manifest:vnsf:
     descriptor: centos_ping_vnfd/centos_ping_vnfd.yaml
     properties:
         vendor: some vendor name
-        capabilities: ['Dummy vNSF']
+        capabilities: ['Virtual OS giovanni:trusty']
     security_info:
         vdu:
           - id: centos_ping_vnfd-VM

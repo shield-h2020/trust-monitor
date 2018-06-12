@@ -27,7 +27,6 @@ import struct
 from structs import IMARecord
 import xml.sax
 import logging
-from trust_monitor_driver.driverOAT import Driver
 
 logger = logging.getLogger('django')
 
@@ -177,7 +176,6 @@ class IMAMeasureHandler(xml.sax.ContentHandler):
     def characters(self, content):
         if not self.capture:
             return
-
         if self.containerId == '' and not self.hostElement:
             self.content += content
             if len(self.content) != 28:
@@ -199,7 +197,6 @@ class IMAMeasureHandler(xml.sax.ContentHandler):
 class XMLParser(object):
     def parse_report_pyxb(self, report_xml, containerCheckAnalysis):
         report = xml_parser.ir_simple_parser.CreateFromDocument(report_xml)
-
         ima_snap = [snap for snap in report.SnapshotCollection
                     if snap.ComponentID.Id.split('_')[1] == '10'][0]
         for v in ima_snap.Values:
@@ -289,9 +286,10 @@ class IRParser(object):
 
 
 class ContainerCheckAnalysis(object):
-    def __init__(self, doCheckContAnalysis, containers, checked_containers):
+    def __init__(self, doCheckContAnalysis, containers, checked_containers,
+                 infoDigest):
         self.doCheckContAnalysis = doCheckContAnalysis
         self.containers = containers
         self.checked_containers = checked_containers
-        logger.info('The list of containers %s ' % checked_containers)
-        Driver.list_containers = self.checked_containers
+        logger.info('Set info digest list containers %s' % checked_containers)
+        infoDigest.list_containers = self.checked_containers

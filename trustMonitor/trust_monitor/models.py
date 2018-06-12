@@ -5,10 +5,11 @@ from django.db import models
 class Host(models.Model):
     hostName = models.TextField()
     address = models.CharField(max_length=16, blank=False)
-    pcr0 = models.CharField(max_length=40, blank=False)
-    distribution = models.TextField()
+    pcr0 = models.CharField(max_length=40, default='Not given')
+    distribution = models.TextField(default='Not given')
     analysisType = models.TextField(
         default='load-time+cont-check,l_req=l4_ima_all_ok|==,cont-list=')
+    driver = models.TextField()
 
     class Meta:
         ordering = ('id',)

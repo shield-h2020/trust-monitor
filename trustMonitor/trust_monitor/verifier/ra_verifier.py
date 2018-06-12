@@ -31,16 +31,13 @@ from connection import *
 import pycassa
 from graph import *
 from structs import *
-from output import *
 from statistics import *
 from aggregation import *
 from action import *
 from analysis import *
 import networkx as nx
-from suds.client import Client
-from parser import IRParser, IMAMeasureHandler
-from parser import ContainerCheckAnalysis
 from django.conf import settings
+from trust_monitor_driver.informationDigest import InformationDigest
 import logging
 
 # use logging system of django.
@@ -63,7 +60,8 @@ class RaVerifier():
         Subject.subj_label_dict = {}
         Object.obj_label_dict = {}
 
-    def verifier(self, distro, analysis, report_url, report_id):
+    def verifier(self, distro, analysis, infoDigest,
+                 checked_containers, report_id):
         logger.info('In verifier method of RaVerifier.')
         cassandraHost = (settings.CASSANDRA_LOCATION + ':' +
                          settings.CASSANDRA_PORT)
@@ -73,40 +71,7 @@ class RaVerifier():
         selinux = False
         selinux_policy_path = None
         results_dir = '.'
-        containers = {}
-        checked_containers = ''
-        doCheckContAnalysis = False
 
-        Statistics.start_timer()
-
-        if 'cont-check' in analysis:
-            doCheckContAnalysis = True
-            logger.info('Understand what kind of analysis to do')
-            for item in analysis.split(','):
-                if item.startswith('cont-list'):
-                    logger.info('Analysis include containters')
-                    checked_containers = item.split('=')[1]
-                    break
-
-        try:
-            if report_url is not None and report_id != 0:
-                client = Client(report_url)
-                logger.info('report url ' + str(report_url))
-                logger.info('report id ' + str(report_id))
-                report_str = client.service.fetchReport(report_id)
-            else:
-                fd = open(measure_list, 'r')
-                report_str = fd.read()
-                fd.close()
-            logger.info('Start to parser IR %s', str(report_id))
-            IRParser(report_str, ContainerCheckAnalysis(doCheckContAnalysis,
-                                                        containers,
-                                                        checked_containers))
-            logger.info('Parsing of IR done.')
-        except Exception as e:
-            logger.error('Error opening IR, %s', e)
-            return 2
-        Statistics.set_elapsed_time('time_parse_ima_list')
         graph = nx.DiGraph()
         try:
             logger.debug('verify conncection cassandra')
@@ -274,7 +239,8 @@ class RaVerifier():
                 a = LoadTimeAnalysis(conn, distro, graph,
                                      target=target, tcb=tcb,
                                      results_dir=results_dir,
-                                     report_id=report_id)
+                                     report_id=report_id,
+                                     informationDigest=infoDigest)
                 a.propagate_errors(load_time_topic)
                 if len(priv_processes) > 0 and 'data' not in load_time_topic:
                     a.propagate_errors('data', priv_processes)

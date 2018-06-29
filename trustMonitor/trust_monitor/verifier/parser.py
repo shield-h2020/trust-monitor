@@ -200,7 +200,6 @@ class XMLParser(object):
         ima_snap = [snap for snap in report.SnapshotCollection
                     if snap.ComponentID.Id.split('_')[1] == '10'][0]
         for v in ima_snap.Values:
-            conta = conta + 1
             item = v.orderedContent()[0].value.Objects[0]
             line = parse_IMA_Image(
                 item.Hash[0].value(), item.Type, item.Image,

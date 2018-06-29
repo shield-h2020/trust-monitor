@@ -150,7 +150,6 @@ def dockerId(list_vim_ip):
 def getListVnf():
     app.logger.info('Get list vnf')
     list_vim_vnf = []
-    app.logger.info('Get list VIM by ip')
     if request.is_json:
         app.logger.info('Received a json object')
         req_data = request.get_json()
@@ -216,7 +215,6 @@ def getVnf(ns, list_vim):
                     list_vnf.append(line_split[3][1:-1])
                 if (line_split[1].find('rw-nsr:datacenter') != -1
                    and line_split[3][1:-1] in list_vim):
-                    app.logger.info('si')
                     vim = line_split[3][1:-1]
                     app.logger.debug('Create dictionary with vim ' + vim
                                      + ' and vnfs ' + str(list_vnf))

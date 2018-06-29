@@ -30,19 +30,19 @@ class DriverOAT():
     def registerNode(self, host):
         logger.info('In registerNode method of driverOAT')
         response = self.confOem()
-        if (response.status_code == 404):
+        if (response.status_code == 500):
             return response
         responseAnalysist = self.confAnalysisType(host)
-        if (responseAnalysist.status_code == 404):
+        if (responseAnalysist.status_code == 400):
             return responseAnalysist
         response1 = self.confOs(host)
-        if (response1.status_code == 404):
+        if (response1.status_code == 500):
             return response1
         response2 = self.confMle(host)
-        if (response2.status_code == 404):
+        if (response2.status_code == 500):
             return response2
         response3 = self.confHost(host)
-        if (response3.status_code == 404):
+        if (response3.status_code == 500):
             return response3
         if response3.status_code == 200:
             response4 = self.confPCR(host)
@@ -75,9 +75,9 @@ class DriverOAT():
             return resp
         except ConnectionError as e:
             error = {'Error impossible to contact': url}
-            logger.error('Error: ' + str(error) + 'status_code = 404')
+            logger.error('Error: ' + str(error) + 'status_code = 400')
             return Response(error,
-                            status=status.HTTP_404_NOT_FOUND)
+                            status=status.HTTP_400_BAD_REQUEST)
 
     # if the oem already exists, the value returned of resp.status_code
     # is equals to 400, otherwise the oem is set.
@@ -95,9 +95,9 @@ class DriverOAT():
             return resp
         except ConnectionError as e:
             error = {'Error impossible to contact': url}
-            logger.error('Error: ' + str(error) + ' status_code = 404')
+            logger.error('Error: ' + str(error) + ' status_code = 500')
             return Response(error,
-                            status=status.HTTP_404_NOT_FOUND)
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # if the os already exists, the value returned of resp.status_code
     # is equals to 400, otherwise the oem is set.
@@ -115,9 +115,9 @@ class DriverOAT():
             return resp
         except ConnectionError as e:
             error = {'Error impossible to contact': url}
-            logger.error('Error: ' + str(error) + ' status_code = 404')
+            logger.error('Error: ' + str(error) + ' status_code = 500')
             return Response(error,
-                            status=status.HTTP_404_NOT_FOUND)
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # if the mle already exists, the value returned of resp.status_code
     # is equals to 400, otherwise the oem is set.
@@ -137,9 +137,9 @@ class DriverOAT():
             return resp
         except ConnectionError as e:
             error = {'Error impossible to contact': url}
-            logger.error('Error: ' + str(error) + ' status_code = 404')
+            logger.error('Error: ' + str(error) + ' status_code = 500')
             return Response(error,
-                            status=status.HTTP_404_NOT_FOUND)
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def confHost(self, host):
         logger.info('Configure Host')
@@ -162,9 +162,9 @@ class DriverOAT():
             return resp
         except ConnectionError as e:
             error = {'Error impossible to contact': url}
-            logger.error('Error: ' + str(error) + ' status_code = 404')
+            logger.error('Error: ' + str(error) + ' status_code = 500')
             return Response(error,
-                            status=status.HTTP_404_NOT_FOUND)
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def confPCR(self, host):
         logger.info('Configure pcr value at host: ' + host.hostName)
@@ -184,9 +184,9 @@ class DriverOAT():
             return resp
         except ConnectionError as e:
             error = {'Error impossible to contact': url}
-            logger.error('Error: ' + str(error) + ' status_code = 404')
+            logger.error('Error: ' + str(error) + ' status_code = 500')
             return Response(error,
-                            status=status.HTTP_404_NOT_FOUND)
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def pollHost(self, node_list):
         logger.info('In pollHost method in driverOAT')
@@ -228,10 +228,13 @@ class DriverOAT():
                     vtime = jsonElem['vtime']
                     if attest == 'trusted':
                         attest = jsonElem['trust_lvl']
-                jsonHost = self.createSingleJson(respo=respo, host=n['node'])
+                jsonHost = self.createSingleJson(respo=respo, host=host)
                 listResult.append(jsonHost)
                 logger.debug('New json object: %s', jsonHost)
-                MapDigest.mapDigest = {}
+                try:
+                    del MapDigest.mapDigest[host.hostName]
+                except KeyError as ke:
+                    logger.warning('Node %s no in map' % host.hostName)
                 InformationDigest.host = ''
             except ObjectDoesNotExist as objDoesNotExist:
                 errorHost = {'Error host not found': n['node']}
@@ -242,7 +245,7 @@ class DriverOAT():
                 error = {'Error impossible to contact': url}
                 logger.error('Error: ' + str(error))
                 return Response(error,
-                                status=status.HTTP_404_NOT_FOUND)
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         if attest == 'timeout':
             attest = 'untrusted'
         jsonAllNFVI = jsonListHost.defineListHosts(listHost=listResult,

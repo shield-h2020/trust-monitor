@@ -1,17 +1,6 @@
-import json
+class DefineJsonCIT():
 
-
-class JsonSingleHost():
-    """
-    Define Json for each single node.
-    This json contains:
-        {"node": "name_of_node",
-         "trust_lvl": "trusted/untrusted",
-         "analysis_status": "COMPLETED/ERROR",
-         "analysis_extra_info": [],
-         "analysis_containers": ['list_of_container']}
-    """
-    def defineSingleHost(self, respo, mapDigest, host):
+    def createJson(self, host, trust_lvl, mapDigest):
         """
         Input response of the framework of attestation
         """
@@ -37,6 +26,7 @@ class JsonSingleHost():
                     jsonCont = {'container': container,
                                 'trust_lvl': trust_cont}
                     list_cont.append(jsonCont)
+
         jsonExtraDetails = {'Digest ok': info.n_digests_ok,
                             'Digest not found': info.n_digests_not_found,
                             'Digest fake lib': info.n_digests_fake_lib,
@@ -47,30 +37,14 @@ class JsonSingleHost():
                             'Packages unknown': info.n_packages_unknown,
                             'Packages not security':
                             info.n_packages_not_security}
-        jsonHost = json.loads(respo.text)['hosts']
-        for jsonElem in jsonHost:
-            host_name = jsonElem['host_name']
-            host_trust = jsonElem['trust_lvl']
-            if host_trust == 'unknown':
-                analysis_status = 'PROBLEM_IN_OAT'
-            elif host_trust != 'timeout':
-                analysis_status = (
-                      jsonElem['analysis_details']['status'])
-            else:
-                analysis_status = 'HOST_NOT_CONNECTED'
-            if 'host' in info.list_prop_not_found:
-                host_trust = 'untrusted'
-            else:
-                host_trust = 'trusted'
-            jsonHost = {'node': host_name, 'trust_lvl': host_trust,
-                        'analysis_status': analysis_status,
-                        'driver': host.driver,
-                        'analysis_containers': list_cont,
-                        'analysis_extra_info': jsonExtraDetails}
+        jsonHost = {'node': host.hostName, 'trust_lvl': trust_lvl,
+                    'analysis_containers': list_cont,
+                    'driver': host.driver,
+                    'analysis_extra_info': jsonExtraDetails}
         return jsonHost
 
 
-class JsonListHost():
+class JsonListHostCIT():
     """
     Added in JsonSingleHost an header
     {"NFVI": "trusted/untrusted",

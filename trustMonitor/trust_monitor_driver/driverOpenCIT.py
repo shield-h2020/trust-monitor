@@ -12,7 +12,7 @@ from requests.auth import HTTPBasicAuth
 from trust_monitor.verifier.parsingCIT import ParsingCIT, XML_CIT_ReportParser
 from trust_monitor_driver.informationDigest import InformationDigest, MapDigest
 from trust_monitor.verifier.ra_verifier import RaVerifier
-
+import time
 
 requests.packages.urllib3.disable_warnings()
 
@@ -21,6 +21,10 @@ distCassandra = settings.CASSANDRA_LOCATION
 port = settings.CASSANDRA_PORT
 verifier_cit = settings.OPEN_CIT
 defineJsonCIT = DefineJsonCIT()
+
+
+def getTime():
+    return int(round(time.time()*1000))
 
 
 class DriverCIT():
@@ -46,6 +50,7 @@ class DriverCIT():
                 jsonAttest = {'host_uuid': host.uuid_host}
                 logger.debug('Define json object to be sent to OpenCIT '
                              'to perform attestation')
+                start = getTime()
                 respo = requests.post(url,
                                       auth=HTTPBasicAuth(
                                         'admin',
@@ -53,6 +58,10 @@ class DriverCIT():
                                       data=json.dumps(jsonAttest),
                                       headers=self.headers_json, verify=False)
                 if respo.status_code == 200:
+                    end = getTime()
+                    logger.info('Performance: Attestation: %s ms' %
+                                (end-start))
+                    start = getTime()
                     logger.info('Get report from %s' % host.hostName)
                     url = ("https://"+verifier_cit +
                            ":8443/mtwilson/v2/host-attestations?nameEqualTo=" +
@@ -69,6 +78,10 @@ class DriverCIT():
                         rep_parser = XML_CIT_ReportParser(report.content)
                         rep_parser.createReport()
                         InformationDigest.host = host.hostName
+                        end = getTime()
+                        logger.info('Performance: Report and Parsing: %s ms' %
+                                    (end-start))
+                        start = getTime()
                         # Call the verify method from the ra_verifier.py
                         ra_verifier = RaVerifier()
                         infoDigest = InformationDigest()
@@ -77,6 +90,9 @@ class DriverCIT():
                                                       infoDigest,
                                                       checked_containers=False,
                                                       report_id=0)
+                        end = getTime()
+                        logger.info('Performance: Ra_verifier: %s ms' %
+                                    (end-start))
                         if result and info_att_cit.getTrust():
                             trust_level = 'trusted'
                         else:

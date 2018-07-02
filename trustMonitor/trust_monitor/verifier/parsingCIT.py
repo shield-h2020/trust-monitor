@@ -46,7 +46,6 @@ class XML_CIT_ReportParser(object):
                            ['host_attestations']
                            ['host_attestation']['trustReport']['hostReport']
                            ['pcrManifest']['imaMeasurementXml'])
-            logger.info('ciao')
 
             ima_obj = untangle.parse(ima_xml)
         except Exception as ex:

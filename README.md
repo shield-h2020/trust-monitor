@@ -10,7 +10,7 @@ of CentOS-based platforms equipped with a TPM.
 ```
 trust-monitor
 ├── docker-compose.yml
-├── helper
+├── OAThelper
 │   ├── setting.py
 │   └── start_verify.py
 ├── LICENSE
@@ -46,10 +46,118 @@ files of the Django app, comprising:
 The directory `reverseProxy` includes the sources of a Docker image
 that instantiates a reverse proxy for the TM app.
 
-The directory `helper` includes additional data for the integration of
-attestation drivers.
+The directory `OAThelper` includes additional data for the integration of
+OAT attestation drivers.
 
-## Software requirements
+**N.B:** The Trust Monitor application requires several other components to work
+properly, as its behaviour is not standalone. First of all, the TM app
+requires a running instance of Apache Cassandra database hosting the
+whitelist measurements for code in a specific schema. Moreover, the Trust Monitor
+application interacts with other components (such as Open Source MANO) via APIs,
+so these components should be in place (and properly configured in the app
+settings) to be reachable by the TM app.
+
+## (Suggested) Docker Compose automated installation
+
+The TM can be deployed in a Docker environment as three three containers:
+- an **nginx** SSL-aware reverse proxy  that exposes its ports (80,443) on the
+host
+- a Django app with the Trust Monitor app on `localhost`
+- a Python `SimpleHTTPServer` to serve the application static files on
+    `localhost`
+
+### Install Docker Engine and Compose
+
+1.  Install Docker engine (see [Install using the repository] on Docker pages)
+
+```
+sudo apt-get remove docker docker-engine docker.io
+sudo apt-get update
+sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+sudo apt-get update
+sudo apt-get install docker-ce
+```
+
+2.  Install Docker compose (see [Install Compose] on Docker pages)
+
+```
+sudo curl -L https://github.com/docker/compose/releases/download/1.18.0/docker-compose-Linux-x86_64 -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+```
+
+[Install using the repository]: https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-using-the-repository
+[Install Compose]: https://docs.docker.com/compose/install/#install-compose
+
+### Configure the applications
+
+In the `reverseProxy` application, note that you need to provide a key and certificate chain under
+`ssl` before executing the Docker Compose script (e.g. via `make-ssl-cert` tool on Ubuntu). The name of the chain and private key depends on the virtual host configured under `reverseProxy/conf/conf.d/test.ra.trust.monitor.vhost.conf`,
+which default to:
+
+* `ssl/private/test.ra.trust.monitor.key`
+* `ssl/certs/test.ra.trust.monitor.chain`
+
+In the `TrustMonitor` application, edit the `trust_monitor_django/settings.py` file to your
+needs. At minimum, you need to configure:
+
+```
+CASSANDRA_LOCATION = $WHITELIST_DB_IP
+CASSANDRA_PORT = '9160'
+```
+
+where Apache Cassandra IP address refers to the instance running the whitelist
+database and the default port is `9160`.
+
+Then, you also need to configure the `OAT_LOCATION` and `CIT_LOCATION` parameters
+if you are using either of the attestation frameworks (more in following sections).
+
+Finally, before running the Docker Compose build script you need to export
+the following environment variables in the same shell:
+
+```
+# export OSM_IP=<ip of Open Source MANO instance>
+```
+
+### Run the Trust Monitor Docker environment
+
+The environment can be deployed via Docker Compose by issuing the command
+
+```
+# docker-compose up --build
+```
+
+from the root directory of the project. Check the logs at startup to ensure that
+all containers are started properly. At the end of the process, run the following
+command from a different shall (still from the root directory):
+
+```
+# docker-compose ps
+```
+
+The output should be similar to the following:
+
+```
+Name                                Command               State                    Ports                  
+----------------------------------------------------------------------------------------------------------------------------
+ratrustmonitor_reverse_proxy_1             nginx -g daemon off;             Up      0.0.0.0:443->443/tcp, 0.0.0.0:80->80/tcp
+ratrustmonitor_tm_dare_connector_1         python dare.py                   Up      5000/tcp                                
+ratrustmonitor_tm_dashboard_connector_1    python dashboard.py              Up      5000/tcp                                
+ratrustmonitor_tm_database_redis_1         docker-entrypoint.sh redis ...   Up      6379/tcp                                
+ratrustmonitor_tm_django_app_1             docker/entrypoint.sh             Up      8000/tcp                                
+ratrustmonitor_tm_manage_osm_connector_1   python manage_osm.py             Up      5000/tcp                                
+ratrustmonitor_tm_rabbitmq_server_1        docker-entrypoint.sh rabbi ...   Up      25672/tcp, 4369/tcp, 5671/tcp, 5672/tcp
+ratrustmonitor_tm_static_serve_1           docker/entrypoint.sh             Up      8000/tcp                                
+ratrustmonitor_tm_store_connector_1        python store.py                  Up      5000/tcp   
+```
+
+## (Alternative) manual installation
+
+In alternative to Docker Compose, you can install the Trust Monitor app as a
+standard Django application.
+
+### Software requirements
 
 The application can be installed on a Ubuntu 16.04.3 LTS host (other distros
 have not been tested, but the installation process may be adapted).
@@ -62,15 +170,7 @@ sudo apt install python-pip graphviz-dev
 sudo pip install -r trustMonitor/requirements.txt
 ```
 
-**N.B:** The Trust Monitor application requires several other components to work
-properly, as its behaviour is not standalone. First of all, the TM app
-requires a running instance of Apache Cassandra database hosting the
-whitelist measurements for code in a specific schema. Moreover, the Trust Monitor
-application interacts with other components (such as Open Source MANO) via APIs,
-so these components should be in place (and properly configured in the app
-settings) to be reachable by the TM app.
-
-## Manual installation
+### Installation steps
 
 1. Create `local_setting.py` file under the `trustMonitor/trust_monitor_django`
 directory to specify configuration parameters.
@@ -81,14 +181,10 @@ LOCAL_SETTINGS = True
 from settings import *
 ALLOWED_HOSTS += ['ip_address_tm']
 CASSANDRA_LOCATION = 'ip_address_cassandra_db'
-CASSANDRA_PORT = 'port_cassandra_db'
-OAT_LOCATION = 'ip_address_oat'
+CASSANDRA_PORT = '9160'
 ```
 
-It is also possible to increase the list of `ALLOWED_HOSTS` or the
-Whitelist Database IP address.
-
-**N.B:** You need to specify the SQLite database path in the `DATABASES`
+**N.B:** You can modify the SQLite database path in the `DATABASES`
 variable as well.
 
 2. Create the database used by the TM to register a new node or insert a
@@ -121,94 +217,6 @@ Quit the server with CONTROL-C.
 ```
 
 The creation was successful.
-
-3. In case of **OpenAttestation** (OAT) driver, indicate the path relative to
-`start_verify.py` used by OAT in the file
-`trust_monitor_driver/driver_setting.py`
-
-```python
-PATH_DRIVER = '/define_your_path/start_verify.py'
-```
-
-## Docker Compose automated installation
-
-The TM can be deployed in a Docker environment as three three containers:
-- an **nginx** SSL-aware reverse proxy  that exposes its ports (80,443) on the
-host
-    - Please note that you need to provide a key and certificate chain under
-    `reverseProxy/ssl` before executing the Docker Compose script (e.g. via
-    `make-ssl-cert` tool on Ubuntu)
-- a Django app with the Trust Monitor app on `localhost`
-    - Edit the `trustMonitor/trust_monitor_django/settings.py` file to your
-    needs
-- a Python `SimpleHTTPServer` to serve the application static files on
-    `localhost`
-    - No additional configuration is needed
-
-In the `docker-compose.yml` file you must specify information for the container tm_manage_osm_connector and for the container tm_django_app.
-- In the `tm_manage_osm_connector` in extra_hosts you must indicate the IP address of where Open Source Mano (OSM) is located, this IP address is defined by osm-r3.
-
-```bash
-extra_hosts:
-  - "osm-r3:ip_address_osm"
-```
-
-- In the `tm_django_app` you need to specify the ip address in extra-hosts where the OAT framework is located, it must be defined as ra-oat-verifier.
-```bash
-extra_hosts:
-  - "ra-oat-verifier:ip_address_oat"
-```
-
-After making these changes it is necessary to modify the Dockerfile of `manage_osm_connector` in which we must specify the IP address of OSM, example of extract of the `connectors/manage_osm_connector/Dockerfile` file:
-
-```python
-ENV OSM_HOSTNAME=ip_address_osm
-
-ENV OSM_RO_HOSTNAME=ip_address_osm
-```
-
-The environment can be deployed via Docker Compose by issuing the command
-
-```
-docker-compose up --build
-```
-
-from the root directory of the project.
-
-### Install Docker Engine and Compose
-
-1.  Install Docker engine (see [Install using the repository] on Docker pages)
-
-```
-sudo apt-get remove docker docker-engine docker.io
-sudo apt-get update
-sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-sudo apt-get update
-sudo apt-get install docker-ce
-```
-
-2.  Install Docker compose (see [Install Compose] on Docker pages)
-
-```
-sudo curl -L https://github.com/docker/compose/releases/download/1.18.0/docker-compose-Linux-x86_64 -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-```
-
-[Install using the repository]: https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-using-the-repository
-[Install Compose]: https://docs.docker.com/compose/install/#install-compose
-
-## Helper scripts
-
-The `helper` folder contains others files used for different operations.
-
-The `start_verify.py` file, contained within this folder is used by the
-attestation driver to contact the TM in order to begin the attestation process. You need to give `start_verify.py` the execution permissions.
-
-The `setting.py file`, is used to set the base URL of the TM (for callback).
-
-These files must be added to the host where OAT is running.
 
 ## Create your attestation driver
 
@@ -273,6 +281,81 @@ tm_store_connector:
    - './logs/store_connector:/logs'
 ```
 
-## Extra Information on OAT
+## Connect the TM to an OAT attestation framework
 
-It is essential to add the certificate that identifies the OAT framework within the directory `trustMonitor/docker/ssl/certs`.
+In order to interact with OAT, both the Trust Monitor application and the OAT
+Verifier need to be configured properly.
+
+### Configuration on the OAT Verifier
+
+The `OAThelper` folder contains others files used for different operations.
+
+The `start_verify.py` file, contained within this folder is used by the
+attestation driver to contact the TM in order to begin the attestation process. You need to give `start_verify.py` the execution permissions.
+
+The `setting.py` file is used to set the base URL of the TM (for callback).
+
+These files must be added to the host where OAT is running in a proper directory,
+hereby named `OAT_TM_DIR`.
+
+### Configuration on the TM app
+
+It is essential to add the certificate that identifies the OAT Verifier within the directory `trustMonitor/docker/ssl/certs`. To do so, you can either download the certificate
+from the web application via browser or run the following command:
+
+```
+# openssl s_client -showcerts -connect $OAT_VERIFIER_IP:8443 </dev/null 2>/dev/null|openssl x509 -outform PEM > trustMonitor/docker/ssl/certs/ra-oat-verifier.pem
+```
+
+which will save the X.509 certificate in PEM format in the `ra-oat-verifier.pem`
+file.
+
+Then, you have to update the `docker-compose.yml` file by adding the following
+lines:
+
+```
+tm_django_app:
+  image: ra/trust_monitor/tm_django_app
+  build: ./trustMonitor
+  environment:
+    - RUN_DJANGO_APP=1
+  depends_on:
+    - tm_static_serve
+  extra_hosts:
+    - "$OAT_VERIFIER_CN":$OAT_VERIFIER_IP"
+```
+
+where `OAT_VERIFIER_CN` is the name included in the OAT Verifier certificate
+and `OAT_VERIFIER_IP` is its IP address.
+
+Moreover, you need to update the `OAT_LOCATION` variable in the `trustMonitor/trust_monitor_django/settings.py` file by adding the IP address
+of the OAT Verifier.
+
+Finally, you need to configure the remote path relative to `start_verify.py` used by OAT in the file
+`trust_monitor_driver/driverOATSettings.py`
+
+```python
+PATH_DRIVER = '/$OAT_TM_DIR/start_verify.py'
+```
+
+## Connect the TM to an Open CIT attestation framework
+
+You need to configure the `CIT_LOCATION` variable in the `trustMonitor/trust_monitor_django/settings.py` file by adding the IP address of the CIT Attestation Server.
+
+## Test the Trust Monitor API
+
+The Trust Monitor Django application allows for a graphical testing of its APIs.
+In order to retrieve status information on the application, just navigate to the
+following URL in a browser:
+```
+https://<TRUST_MONITOR_BASE_URL_OR_IP>/get_status_info/
+```
+In order to perform registration of a node, just access the following page:
+```
+https://<TRUST_MONITOR_BASE_URL_OR_IP>/register_node/
+```
+
+In order to perform attestation of a node, just access the following page:
+```
+https://<TRUST_MONITOR_BASE_URL_OR_IP>/attest_node/
+```

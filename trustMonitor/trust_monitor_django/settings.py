@@ -120,12 +120,13 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = '/static'
 
-ATTESTATION_FRAMEWORK = ''
 
 CASSANDRA_LOCATION = ''
 CASSANDRA_PORT = ''
 
 OAT_LOCATION = ''
+
+OPEN_CIT = ''
 
 LOGGING = {
     'version': 1,

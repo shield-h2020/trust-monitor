@@ -20,8 +20,12 @@ from trust_monitor.engine import dashboard_connector, get_status_connectors
 from trust_monitor_driver.driverOAT import DriverOAT
 from trust_monitor_driver.informationDigest import InformationDigest
 from trust_monitor.verifier.parsingOAT import parsing
+from trust_monitor_driver.driverOpenCIT import DriverCIT
+from trust_monitor_driver.driverOpenCIT import InformationAttestation
+from trust_monitor_driver.defineJsonCIT import JsonListHostCIT
 
 driver_oat = DriverOAT()
+driver_cit = DriverCIT()
 
 logger = logging.getLogger('django')
 
@@ -84,19 +88,16 @@ class RegisterNode(APIView):
         if serializer.is_valid():
             logger.debug('Serialization of host is valide, the new node '
                          'have all information')
-            newHost = Host(hostName=serializer.data["hostName"],
-                           address=serializer.data["address"],
-                           driver=serializer.data['driver'])
+            newHost = Host(hostName=request.data["hostName"],
+                           address=request.data["address"],
+                           driver=request.data['driver'],
+                           distribution=request.data['distribution'])
             try:
-                newHost.pcr0 = serializer.data["pcr0"]
+                newHost.pcr0 = request.data["pcr0"]
             except KeyError as ke:
                 logger.warning('Pcr0 not given')
             try:
-                newHost.distribution = serializer.data["distribution"]
-            except KeyError as ke:
-                logger.warning('distribution not given')
-            try:
-                newHost.analysisType = serializer.data["analysisType"]
+                newHost.analysisType = request.data["analysisType"]
             except KeyError as ke:
                 logger.warning('AnalysisType not given')
             logger.info('The information of the node are:')
@@ -133,8 +134,8 @@ class RegisterNode(APIView):
                                     status=response.status_code)
             elif newHost.driver == 'OpenCIT':
                 logger.info('Register node OpenCIT')
-                # add your function here and remove pass
-                # serializer.save()
+                driver_cit.registerNode(newHost)
+                serializer.save()
                 logger.info('Save node in the Django db')
                 return Response(serializer.data,
                                 status=status.HTTP_201_CREATED)
@@ -178,6 +179,11 @@ class AttestNode(APIView):
         """
         logger.info('Call post method of attest_node to attest '
                     'one or mode node')
+        list_cit = []
+        list_oat = []
+        list_global_attest = []
+        info_att_cit = InformationAttestation()
+        status_code = status.HTTP_200_OK
         if hasattr(request, 'data'):
             value_data = request.data
         else:
@@ -188,31 +194,58 @@ class AttestNode(APIView):
             logger.debug('Serializaton of information passed of post '
                          'method are valide, the information are: '
                          + str(node_list))
-            logger.debug('Call driver to manage the attest node')
-            if len(node_list) == 1:
-                node = node_list[0]
+            for node in node_list:
                 logger.debug('Search node: %s in the database of Django'
                              % node['node'])
-                host = Host.objects.get(hostName=node['node'])
-                if host.driver == 'OpenCIT':
-                    logger.info('Attestation with OpenCIT')
-                    # add your function here
-            logger.info('Attestation with OAT')
-            response = attest_node(node_list)
-            if (type(response) != dict):
-                logger.error('Get object type response')
-                logger.error('Response status_code = '
-                             + str(response.status_code))
-                logger.error('Information: ' + str(response.data))
-                dare_connector(response.data)
-                return Response(response.data,
-                                status=response.status_code)
-            else:
-                dare_connector(response)
-                dashboard_connector(response)
-                logger.info('Response status_code = 200')
-                logger.info('Result: ' + str(response))
-                return Response(response, status=status.HTTP_200_OK)
+                try:
+                    host = Host.objects.get(hostName=node['node'])
+                    if host.driver == 'OpenCIT':
+                        logger.info('Node %s added to OpenCIT list'
+                                    % host.hostName)
+                        list_cit.append(host)
+                    elif host.driver == 'OAT':
+                        logger.info('Node %s added to OAT list'
+                                    % host.hostName)
+                        list_oat.append(node)
+                except ObjectDoesNotExist as objDoesNotExist:
+                    errorHost = {'Error host not found': node['node']}
+                    logger.error('Error: ' + str(errorHost))
+                    return Response(errorHost,
+                                    status=status.HTTP_404_NOT_FOUND)
+            if list_cit:
+                logger.info('Attest node based on OpenCIT driver')
+                jsonData = driver_cit.pollHost(list_cit, info_att_cit)
+                if (type(jsonData) != list):
+                    return Response(jsonData.data,
+                                    status=jsonData.status_code)
+
+                jsonListCIT = JsonListHostCIT()
+                vtime = info_att_cit.getTime()
+                lvl_trust = info_att_cit.getTrustGlobal()
+                logger.info(jsonData)
+                res = jsonListCIT.defineListHosts(listHost=jsonData,
+                                                  vtime=vtime,
+                                                  trust_lvl=lvl_trust)
+                list_global_attest.append(res)
+            if list_oat:
+                logger.info('Attestation with OAT')
+                response = attest_node(list_oat)
+                if (type(response) != dict):
+                    logger.error('Get object type response')
+                    logger.error('Response status_code = '
+                                 + str(response.status_code))
+                    logger.error('Information: ' + str(response.data))
+                    dare_connector(response.data)
+                    status_code = response.status_code
+                else:
+                    dare_connector(response)
+                    dashboard_connector(response)
+                    logger.debug('Response status_code = 200')
+                    logger.debug('Result: ' + str(response))
+                    status_code = status.HTTP_200_OK
+                list_global_attest.append(response)
+
+            return Response(list_global_attest, status=status_code)
         else:
             logger.error('Serialization generated an error ' +
                          str(serializer.errors))
@@ -240,6 +273,7 @@ class StatusTrustMonitor(APIView):
         logger.info('Trust Monitor works')
         logger.info('Call driver to verify if it works')
         message = driver_oat.getStatus()
+        message = driver_cit.getStatus(message=message)
         response = get_status_connectors(message)
         return Response(response.data, status=response.status_code)
 

@@ -4,9 +4,10 @@ from django.db import models
 
 class Host(models.Model):
     hostName = models.TextField()
+    uuid_host = models.TextField(default='None')
     address = models.CharField(max_length=16, blank=False)
-    pcr0 = models.CharField(max_length=40, default='Not given')
-    distribution = models.TextField(default='Not given')
+    pcr0 = models.CharField(max_length=40, default='None')
+    distribution = models.TextField()
     analysisType = models.TextField(
         default='load-time+cont-check,l_req=l4_ima_all_ok|==,cont-list=')
     driver = models.TextField()

@@ -9,7 +9,7 @@ import logging
 from django.conf import settings
 import pycassa
 import redis
-from driver_setting import *
+from trust_monitor_driver.driverOATSettings import *
 from trust_monitor_driver.defineJsonOAT import JsonSingleHost, JsonListHost
 from trust_monitor_driver.informationDigest import MapDigest, InformationDigest
 
@@ -261,6 +261,14 @@ class DriverOAT():
     def getStatus(self):
         logger.info('Get Status of Driver OAT')
         message = []
+
+        if not verifier:
+            logger.info('The OAT driver is not configured')
+            message.append({'Driver OAT configured': False})
+            return message
+        else:
+            message.append({'Driver OAT configured': True})
+
         try:
             url = 'https://'+verifier+':8443/WLMService/resources/oem'
             logger.debug('Try to contact OAT on %s' % url)

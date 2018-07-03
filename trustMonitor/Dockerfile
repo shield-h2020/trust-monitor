@@ -4,9 +4,9 @@ LABEL maintainer="Marco De Benedictis <marco.debenedictis@polito.it>"
 
 RUN mkdir /logs /db
 
-RUN echo 'https://dl-3.alpinelinux.org/alpine/v3.4/main' > /etc/apk/repositories  && \
-    echo '@testing https://dl-3.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories && \
-    echo '@community https://dl-3.alpinelinux.org/alpine/v3.4/community'
+#RUN echo 'https://dl-3.alpinelinux.org/alpine/v3.4/main' > /etc/apk/repositories  && \
+#    echo '@testing https://dl-3.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories && \
+#    echo '@community https://dl-3.alpinelinux.org/alpine/v3.4/community'
 
 WORKDIR /usr/src/app
 

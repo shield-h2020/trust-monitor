@@ -104,3 +104,7 @@ ENV/
 
 *.key
 *.chain
+*.pem
+
+# db
+db.sqlite3

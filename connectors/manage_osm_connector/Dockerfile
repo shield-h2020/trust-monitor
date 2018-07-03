@@ -2,6 +2,7 @@ FROM ubuntu:16.04
 
 LABEL maintainer="Giovanni Trivigno <s231595@studenti.polito.it>"
 
+ARG osm_ip
 RUN mkdir /logs
 
 WORKDIR /usr/src/app
@@ -22,9 +23,9 @@ RUN add-apt-repository -y "deb [arch=amd64] http://osm-download.etsi.org/reposit
 
 RUN apt-get update  && apt-get install -y python-osmclient
 
-ENV OSM_HOSTNAME=osm_ip
+ENV OSM_HOSTNAME=$osm_ip
 
-ENV OSM_RO_HOSTNAME=osm_ip
+ENV OSM_RO_HOSTNAME=$osm_ip
 
 EXPOSE 5000
 

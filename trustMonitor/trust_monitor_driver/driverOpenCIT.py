@@ -6,7 +6,6 @@ from requests.exceptions import ConnectionError
 from django.core.exceptions import ObjectDoesNotExist
 import logging
 from django.conf import settings
-from driver_setting import *
 from trust_monitor_driver.defineJsonCIT import DefineJsonCIT
 from requests.auth import HTTPBasicAuth
 from trust_monitor.verifier.parsingCIT import ParsingCIT, XML_CIT_ReportParser
@@ -19,7 +18,7 @@ requests.packages.urllib3.disable_warnings()
 logger = logging.getLogger('django')
 distCassandra = settings.CASSANDRA_LOCATION
 port = settings.CASSANDRA_PORT
-verifier_cit = settings.OPEN_CIT
+verifier_cit = settings.CIT_LOCATION
 defineJsonCIT = DefineJsonCIT()
 
 
@@ -139,6 +138,14 @@ class DriverCIT():
     # See if Attestation Server (OpenCIT) is alive
     def getStatus(self, message):
         logger.info('Get Status of Driver OpenCIT')
+
+        if not verifier_cit:
+            logger.info('The CIT driver is not configured')
+            message.append({'Driver CIT configured': False})
+            return message
+        else:
+            message.append({'Driver CIT configured': True})
+
         try:
             url = 'https://'+verifier_cit+':8443/mtwilson-portal'
             logger.debug('Try to contact OpenCIT on %s' % url)
@@ -147,7 +154,7 @@ class DriverCIT():
             message_cit = {'Driver OpenCIT works': True}
             logger.info(message_cit)
             message.append(message_cit)
-        except ConnectionError as e:
+        except Exception as e:
             error_oat = {'Driver OpenCIT works': False}
             logger.error('Error impossible to contact OpenCIT %s' % e)
             message.append(error_oat)

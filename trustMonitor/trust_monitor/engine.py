@@ -200,15 +200,15 @@ def redis_db(list_digest):
                     logger.debug('The digest is not present in redis')
                     logger.info('Set in redisDB key: '+key+' value: '+value)
                     redisDB.set(key, value)
-                    appendKnown_digest(value)
+                    DigestListUpdater.append_known_digest(value)
                 else:
                     if data == value:
                         logger.debug('The digest already exist in redis')
                     else:
                         logger.debug('The digest is changed update redis')
                         redisDB(key, value)
-                        removedKnown_digest(data)
-                        appendKnown_digest(value)
+                        DigestListUpdater.remove_known_digest(data)
+                        DigestListUpdater.append_known_digest(value)
         return True
     except redis.ConnectionError as e:
         jsonError = {'Error': 'Impossible contact to Redis db'}

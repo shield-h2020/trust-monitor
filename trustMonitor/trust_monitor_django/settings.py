@@ -120,13 +120,14 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = '/static'
 
-
+# In case CIT, OAT drivers are used, configure this parameter
 CASSANDRA_LOCATION = ''
-CASSANDRA_PORT = ''
+CASSANDRA_PORT = '9160'
 
+# If you are using an OAT driver, configure this parameter
 OAT_LOCATION = ''
-
-OPEN_CIT = ''
+# If you are using a CIT driver, configure this parameter
+CIT_LOCATION = ''
 
 LOGGING = {
     'version': 1,

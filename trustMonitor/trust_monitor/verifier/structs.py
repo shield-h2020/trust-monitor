@@ -47,17 +47,18 @@ list_dig = redis_instantiate()
 known_digests.extend(list_dig)
 
 
-def appendKnown_digest(digest):
-    if digest is known_digests:
-        logger.info('Digest %s already exist in the list of digest', digest)
-    else:
-        known_digests.append(digest)
-        logger.info('Added digest %s in the list', digest)
+class DigestListUpdater:
+    def append_known_digest(digest):
+        if digest is known_digests:
+            logger.info('Digest %s already exist in the list of digest', digest)
+        else:
+            known_digests.append(digest)
+            logger.info('Added digest %s in the list', digest)
 
 
-def removedKnown_digest(digest):
-    known_digests.remove(digest)
-    logger.info('Removed digest %s in the list', digest)
+    def remove_known_digest(digest):
+        known_digests.remove(digest)
+        logger.info('Removed digest %s in the list', digest)
 
 
 # template common fields

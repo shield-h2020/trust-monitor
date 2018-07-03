@@ -18,9 +18,12 @@ services:
 
   tm_manage_osm_connector:
     image: ra/connectors/manage_osm_connector
-    build: ./connectors/manage_osm_connector
+    build:
+      context: ./connectors/manage_osm_connector
+      args:
+        - osm_ip=${OSM_IP}
     extra_hosts:
-      - "osm-r3:xxx.xxx.xxx.xxx"
+      - "osm-r3:${OSM_IP}"
 
   tm_store_connector:
     image: ra/connectors/store_connector
@@ -41,8 +44,7 @@ services:
       - tm_static_serve:tm_static_serve
     volumes:
       - './reverseProxy/ssl:/etc/ssl:ro'
-    # Configure volume to export logs
-    # - './logs/reverse_proxy:/var/log/nginx'
+      - './logs/reverse_proxy:/var/log/nginx'
     ports:
       - 80:80
       - 443:443
@@ -54,17 +56,16 @@ services:
       - RUN_DJANGO_APP=1
     depends_on:
       - tm_static_serve
-    extra_hosts:
-      - "ra-oat-verifier:xxx.xxx.xxx.xxx"
+    #extra_hosts:
+    #  - "$OAT_VERIFIER_CN":$OAT_VERIFIER_IP"
     links:
       - tm_dare_connector:tm_dare_connector
       - tm_dashboard_connector:tm_dashboard_connector
       - tm_manage_osm_connector:tm_manage_osm_connector
       - tm_store_connector:tm_store_connector
       - tm_database_redis:tm_database_redis
-    # Configure volume to export logs
     volumes:
-    # - './logs/tm_django_app:/logs'
+      - './logs/tm_django_app:/logs'
       - './trustMonitor/docker/db:/db'
 
   tm_static_serve:

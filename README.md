@@ -2,8 +2,8 @@
 
 This repository contains the software required to instantiate the Trust
 Monitor application. This application can be used together with a Reference
-Database and an attestation runtime to provide load-time/run-time attestation
-of CentOS-based platforms equipped with a TPM.
+Database and one or more attestation runtimes to provide load-time/run-time
+attestation of compute platforms and SDN network equipment via TPM.
 
 ## Directory structure
 

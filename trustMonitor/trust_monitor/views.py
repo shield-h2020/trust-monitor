@@ -23,7 +23,7 @@ from trust_monitor.verifier.parsingOAT import parsing
 from trust_monitor_driver.driverOpenCIT import DriverCIT
 from trust_monitor_driver.driverOpenCIT import InformationAttestation
 from trust_monitor_driver.defineJsonCIT import JsonListHostCIT
-from trust_monitor_driver.DriverHPE import DriverHPE
+from trust_monitor_driver.driverHPE import DriverHPE
 
 driver_oat = DriverOAT()
 driver_cit = DriverCIT()

@@ -342,6 +342,36 @@ PATH_DRIVER = '/$OAT_TM_DIR/start_verify.py'
 
 You need to configure the `CIT_LOCATION` variable in the `trustMonitor/trust_monitor_django/settings.py` file by adding the IP address of the CIT Attestation Server.
 
+## Connect the TM to the HPE switch attestation framework
+
+*N.B:* This section refers to the Docker-based deployment.
+
+You need to place the HPE switchVerifier binary and configuration file in the
+`hpe` directory. Then, you need to configure the name of these configuration
+files and binary in the `trustMonitor/trust_monitor_driver/driverHPESettings.py`
+file, as follows:
+```
+SWITCH_VERIFIER_PATH = '/hpe/<final name of switchVerifier binary>'
+SWITCH_VER_CONFIG_PATH = '/hpe/<name of configuration file (default config.json)>'
+SWITCH_PCR_PUB_KEY_PATH = '/hpe/<name of pub key for PCR sig. verification>'
+SWITCH_REF_CONFIG_PATH = '/hpe/<name of switch reference configuration>'
+```
+
+Finally, ensure that the following volume is enabled in the `docker-compose.yml`
+file:
+
+```
+tm_django_app:
+  image: ra/trust_monitor/tm_django_app
+  [...]
+  volumes:
+    [...]
+    - './hpe:/hpe'
+```
+
+In case you want to edit the `hpe` directory path in the host system, edit the
+first part of the volume definition (the second is the path inside of the container).
+
 ## Test the Trust Monitor API
 
 The Trust Monitor Django application allows for a graphical testing of its APIs.

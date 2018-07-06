@@ -269,7 +269,7 @@ class AttestNode(APIView):
                 response = driver_hpe.pollHost(list_hpe)
                 # Response is not a list (of attestation data), hence it is
                 # an error response
-                if (type(response) != list):
+                if (type(response) != dict):
                     logger.error("Attestation for HPESwitch driver failed: " \
                         + str(response.data))
                     dare_connector(response.data)

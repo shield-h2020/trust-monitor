@@ -6,6 +6,7 @@ import json
 from trust_monitor.models import Host
 from rest_framework.response import Response
 from rest_framework import status
+import time
 
 logger = logging.getLogger('django')
 
@@ -74,7 +75,9 @@ class DriverHPE():
         return message
 
     def pollHost(self, node_list):
-        """Attests the switch via the HPE driver
+        """Attests the switch via the HPE driver and returns a JSON with
+        global attestation result, timestamp and individual results for
+        switchVerifier runs.
 
         As follows, an example of the parameter node_list value in case of
         multiple HPESwitch nodes
@@ -83,7 +86,8 @@ class DriverHPE():
         logger.info("Attesting node(s) with HPE driver")
         logger.debug("Node list is: " + str(node_list))
 
-        listResult = []
+        attestationResults = []
+        trust_level = "trusted"
 
         # In case of multiple nodes (switches), run the SwitchVerifier script
         # for each one of them
@@ -93,9 +97,12 @@ class DriverHPE():
                 host = Host.objects.get(hostName=node_obj['node'])
                 logger.debug("Node IP address is " + host.address)
                 result = runSwitchVerifier(host.address)
-                logger.debug("Attestation result for node" + host.hostName + ": " + result)
+
                 # Load result as json and append it to list
-                listResult.append(json.loads(result))
+                jsonResult = json.loads(result)
+                trust_level = extractTrustLevelFromResult(jsonResult)
+                attestationResults.append(jsonResult)
+
             except ValueError as not_json:
                 logger.error("Attestation result is not a JSON")
                 error = {'ValueError': not_json.message}
@@ -106,4 +113,32 @@ class DriverHPE():
                 error = {'Exception': generic_exception.message}
                 return Response(error,
                                 status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return listResult
+
+        jsonHosts = {
+                    "NFVI": trust_level,
+                    "vtime": getTime(),
+                    "details": attestationResults
+                    }
+
+        logger.debug("Final HPE driver attestation result: " + str(jsonHosts))
+        return jsonHosts
+
+
+def extractTrustLevelFromResult(result):
+    """Returns 'trusted' or 'untrusted' string depending on the result of the
+        JSON parameters in the switchVerifier output
+
+        The result is trusted if both Firmware and OS are correct and up
+        to data, and both configuration and SDN Rules match in the switch
+
+    """
+    if result["FirmwareLevel"] == 0 and result["OSLevel"] == 0 \
+        and result["ConfigurationMatch"] == True and result["SDNRulesMatch"] == True:
+        return "trusted"
+    else:
+        return "untrusted"
+
+def getTime():
+    """Returns current time as integer
+    """
+    return int(round(time.time()*1000))

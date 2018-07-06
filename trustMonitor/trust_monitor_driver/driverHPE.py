@@ -49,25 +49,24 @@ class DriverHPE():
         logger.warning('registerNode does not actually register a switch for HPE driver')
         pass
 
-    def getStatus(self):
+    def getStatus(self, message):
         """Retrieves the status of the HPE driver
         """
         logger.info('Getting status of HPE driver')
-        message = []
 
         # If configuration is missing, fail
         if not SWITCH_VERIFIER_PATH or not SWITCH_VER_CONFIG_PATH \
                 or not SWITCH_PCR_PUB_KEY_PATH or not SWITCH_REF_CONFIG_PATH:
-            message.append({'Driver HPE configured:' False})
+            message.append({'Driver HPE configured:':  False})
         # Else, config is ok
         else:
-            message.append({'Driver HPE configured:' False})
+            message.append({'Driver HPE configured:': True})
             # Check if switchVerifier exists in local path
             if os.path.isfile(SWITCH_VERIFIER_PATH):
-                message.append({'Driver HPE works:' True})
+                message.append({'Driver HPE works:': True})
             # If it does not, fail
             else:
-                message.append({'Driver HPE works:' False})
+                message.append({'Driver HPE works:': False})
 
         return message
 

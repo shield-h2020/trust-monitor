@@ -3,6 +3,9 @@ from driverHPESettings import *
 import subprocess
 import os
 import json
+from trust_monitor.models import Host
+from rest_framework.response import Response
+from rest_framework import status
 
 logger = logging.getLogger('django')
 
@@ -99,8 +102,7 @@ class DriverHPE():
                 return Response(error,
                                 status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             except Exception as generic_exception:
-                logger.error("Exception occurred while attesting node " + host.hostName \
-                    + str(generic_exception))
+                logger.error("Exception occurred while attesting node " + str(generic_exception))
                 error = {'Exception': generic_exception.message}
                 return Response(error,
                                 status=status.HTTP_500_INTERNAL_SERVER_ERROR)

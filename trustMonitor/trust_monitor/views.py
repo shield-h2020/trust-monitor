@@ -280,7 +280,7 @@ class AttestNode(APIView):
                     status_code = status.HTTP_200_OK
                     dare_connector(response)
                     dashboard_connector(response)
-                list_global_attest.append(result)
+                list_global_attest.append(response)
 
 
             return Response(list_global_attest, status=status_code)

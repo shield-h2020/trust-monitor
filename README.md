@@ -380,12 +380,32 @@ following URL in a browser:
 ```
 https://<TRUST_MONITOR_BASE_URL_OR_IP>/get_status_info/
 ```
+This page should display in human readable form the status of different
+services related to the TM and the attestation frameworks as well.
+
 In order to perform registration of a node, just access the following page:
 ```
 https://<TRUST_MONITOR_BASE_URL_OR_IP>/register_node/
 ```
 
+From the page, click the `GET` button to retrieve the list of currently registered
+nodes (the TM app uses a volume for SQLite database, so it should persist among
+restarts of the Docker environment).
+In order to register an host, add the following content in the `POST` body:
+
+```
+{"distribution": "<distro (e.g. CentOS7/HPE)>", "hostName": "<host name>",
+"driver":"OAT/OpenCIT/HPESwitch", "address": "xxx.xxx.xxx.xxx"}
+```
+
 In order to perform attestation of a node, just access the following page:
 ```
 https://<TRUST_MONITOR_BASE_URL_OR_IP>/attest_node/
+```
+
+In order to attest a previously registered node, add the following content in
+the `POST` body:
+
+```
+{"node_list" : [{"node" : "<host name>"}]}
 ```

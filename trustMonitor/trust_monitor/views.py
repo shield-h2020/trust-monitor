@@ -23,9 +23,11 @@ from trust_monitor.verifier.parsingOAT import parsing
 from trust_monitor_driver.driverOpenCIT import DriverCIT
 from trust_monitor_driver.driverOpenCIT import InformationAttestation
 from trust_monitor_driver.defineJsonCIT import JsonListHostCIT
+from trust_monitor_driver.driverHPE import DriverHPE
 
 driver_oat = DriverOAT()
 driver_cit = DriverCIT()
+driver_hpe = DriverHPE()
 
 logger = logging.getLogger('django')
 
@@ -139,6 +141,15 @@ class RegisterNode(APIView):
                 logger.info('Save node in the Django db')
                 return Response(serializer.data,
                                 status=status.HTTP_201_CREATED)
+            # The host is being registered in the TM application
+            # Distribution is required for other drivers, use generic value here.
+            elif newHost.driver == 'HPESwitch':
+                logger.info('Register node HPESwitch')
+                driver_hpe.registerNode(newHost)
+                serializer.save()
+                logger.info('Saved HPESwitch node in the Django db')
+                return Response(serializer.data,
+                                status=status.HTTP_201_CREATED)
             else:
                 error = {'error': 'Attestation driver not found impossible '
                                   'add this node'}
@@ -181,6 +192,8 @@ class AttestNode(APIView):
                     'one or mode node')
         list_cit = []
         list_oat = []
+        # HPE nodes list (to be filled with POST parameters)
+        list_hpe = []
         list_global_attest = []
         info_att_cit = InformationAttestation()
         status_code = status.HTTP_200_OK
@@ -207,6 +220,11 @@ class AttestNode(APIView):
                         logger.info('Node %s added to OAT list'
                                     % host.hostName)
                         list_oat.append(node)
+                    # Append HPE nodes to list_hpe object
+                    elif host.driver == "HPESwitch":
+                        logger.info('Node %s added to HPESwitch list'
+                                    % host.hostName)
+                        list_hpe.append(node)
                 except ObjectDoesNotExist as objDoesNotExist:
                     errorHost = {'Error host not found': node['node']}
                     logger.error('Error: ' + str(errorHost))
@@ -244,6 +262,26 @@ class AttestNode(APIView):
                     logger.debug('Result: ' + str(response))
                     status_code = status.HTTP_200_OK
                 list_global_attest.append(response)
+            # Run local method attest_node for each HPE node
+            # Save results to global list and call connectors
+            if list_hpe:
+                logger.info('Attestation with HPESwitchVerifier started')
+                response = driver_hpe.pollHost(list_hpe)
+                # Response is not a list (of attestation data), hence it is
+                # an error response
+                if (type(response) != dict):
+                    logger.error("Attestation for HPESwitch driver failed: " \
+                        + str(response.data))
+                    dare_connector(response.data)
+                    status_code = response.status_code
+                # Else it is a correct response
+                else:
+                    logger.info('Attestation with HPESwitchVerifier completed.')
+                    status_code = status.HTTP_200_OK
+                    dare_connector(response)
+                    dashboard_connector(response)
+                list_global_attest.append(response)
+
 
             return Response(list_global_attest, status=status_code)
         else:
@@ -274,6 +312,8 @@ class StatusTrustMonitor(APIView):
         logger.info('Call driver to verify if it works')
         message = driver_oat.getStatus()
         message = driver_cit.getStatus(message=message)
+        # Added status verification for HPE driver
+        message = driver_hpe.getStatus(message=message)
         response = get_status_connectors(message)
         return Response(response.data, status=response.status_code)
 

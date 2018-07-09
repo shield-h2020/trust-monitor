@@ -32,8 +32,8 @@ def parser_data(data):
     app.logger.info(data)
     app.logger.info(data['list_vnf'])
     list_digest = []
-    try:
-        for vnf in data['list_vnf']:
+    for vnf in data['list_vnf']:
+        try:
             app.logger.info('Analyze file %s' % str(vnf))
             stream = file(str(vnf)+'.yaml')
             doc = yaml.load(stream)
@@ -44,14 +44,12 @@ def parser_data(data):
                 for key, value in values.iteritems():
                     temp = {key: value}
                     list_digest.append(temp)
-    except IOError as ioe:
-        json_error = {'Error': 'impossible to find vnf'}
-        app.logger.error(json_error)
-        return json_error
-    except yaml.YAMLError, exc:
-        json_error = {'Error in configuration file': exc}
-        app.logger.error(json_error)
-        return json_error
+        except IOError as ioe:
+            json_error = {'Error': 'impossible to find vnf'}
+            app.logger.error(json_error)
+        except yaml.YAMLError, exc:
+            json_error = {'Error in configuration file': exc}
+            app.logger.error(json_error)
     return list_digest
 
 

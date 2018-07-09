@@ -67,7 +67,8 @@ services:
     volumes:
       - './logs/tm_django_app:/logs'
       - './trustMonitor/docker/db:/db'
-
+      # Integration with HPE switchVerifier
+      - './hpe:/hpe'
   tm_static_serve:
     image: ra/trust_monitor_tm_static_serve
     build: ./trustMonitor

@@ -23,7 +23,7 @@ COPY . .
 
 COPY ./docker/ssl/certs/* /etc/ssl/certs/
 
-RUN /etc/ca-certificates/update.d/c_rehash
+RUN /etc/ca-certificates/update.d/certhash
 
 EXPOSE 8000
 

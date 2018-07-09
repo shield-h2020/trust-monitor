@@ -144,10 +144,11 @@ def check_vnfs(list_vim_vnf, list_vim):
         list_digest = store_vnsfs_digests(list_vnf)
         if list_digest is False:
             logger.warning('Impossible to obtain the list of digest')
-        value = redis_db(list_digest)
-        if value is not True:
-            logger.warning('Impossible to communicate with Redis, '
-                           'the measure not are added in DB')
+        if list_digest:
+            value = redis_db(list_digest)
+            if value is not True:
+                logger.warning('Impossible to communicate with Redis, '
+                               'the measure not are added in DB')
     else:
         logger.warning('No vnf for vim: '+str(list_vim)+' are in executions')
 

@@ -193,6 +193,7 @@ def redis_db(list_digest):
     logger.info('Added digest to Redis DB')
     logger.info('list digest %s' % list_digest)
     try:
+        from trust_monitor.verifier.structs import DigestListUpdater
         redisDB = redis.Redis(host='tm_database_redis', port='6379')
         for digest in list_digest:
             for key, value in digest.items():

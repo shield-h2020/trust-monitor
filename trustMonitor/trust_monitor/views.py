@@ -12,7 +12,7 @@ import json
 import requests
 import logging
 from trust_monitor.verifier.ra_verifier import RaVerifier
-from trust_monitor.verifier import structs
+from trust_monitor.verifier.structs import DigestListUpdater
 from django.core.exceptions import ObjectDoesNotExist
 from trust_monitor.engine import dare_connector, attest_single_node
 from trust_monitor.engine import manage_osm_vim_docker, attest_node
@@ -142,7 +142,8 @@ class RegisterNode(APIView):
                 return Response(serializer.data,
                                 status=status.HTTP_201_CREATED)
             # The host is being registered in the TM application
-            # Distribution is required for other drivers, use generic value here.
+            # Distribution is required for other drivers,
+            # use generic value here.
             elif newHost.driver == 'HPESwitch':
                 logger.info('Register node HPESwitch')
                 driver_hpe.registerNode(newHost)
@@ -270,18 +271,18 @@ class AttestNode(APIView):
                 # Response is not a list (of attestation data), hence it is
                 # an error response
                 if (type(response) != dict):
-                    logger.error("Attestation for HPESwitch driver failed: " \
-                        + str(response.data))
+                    logger.error("Attestation for HPESwitch driver failed: "
+                                 + str(response.data))
                     dare_connector(response.data)
                     status_code = response.status_code
                 # Else it is a correct response
                 else:
-                    logger.info('Attestation with HPESwitchVerifier completed.')
+                    logger.info('Attestation with HPESwitchVerifier'
+                                'completed.')
                     status_code = status.HTTP_200_OK
                     dare_connector(response)
                     dashboard_connector(response)
                 list_global_attest.append(response)
-
 
             return Response(list_global_attest, status=status_code)
         else:
@@ -534,7 +535,7 @@ class Known_Digest(APIView):
             logger.info('See if the digest already exists in db')
             try:
                 digest_found = KnownDigest.objects.get(
-                    digest=serializer.data['digest'])
+                    digest=request.data['digest'])
                 logger.error('Digest already exists in the database')
                 jsonMessage = {'Digest %s' % request.data['digest']:
                                'already exists'}
@@ -546,7 +547,7 @@ class Known_Digest(APIView):
                              request.data['digest'])
                 logger.info('Added digest at list of known_digests'
                             ' in structs.py file')
-                structs.appendKnown_digest(request.data['digest'])
+                DigestListUpdater.append_known_digest(request.data['digest'])
                 serializer.save()
                 logger.info('Save digest in the database of Django')
                 return Response(serializer.data,
@@ -589,7 +590,7 @@ class Known_Digest(APIView):
                     digest=serializer.data['digest'])
                 logger.info('Removed known digest %s %s',
                             digest_found.pathFile, digest_found.digest)
-                structs.removedKnown_digest(digest_found.digest)
+                DigestListUpdater.remove_known_digest(digest_found.digest)
                 digest_found.delete()
                 logger.info("Digest %s removed from django db",
                             digest_found.digest)

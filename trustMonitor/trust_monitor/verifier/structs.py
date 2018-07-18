@@ -26,46 +26,9 @@ import os
 from util import *
 from statistics import *
 import logging
-from trust_monitor.models import KnownDigest
 from django.db import OperationalError
-from trust_monitor.engine import redis_instantiate
 
-logger = logging.getLogger('django')
-
-
-# define list of known digests at start of django
-class InstantiateDigest:
-    known_digests = []
-
-    @staticmethod
-    def instantiate_known_digest():
-        # define list of known digest at start of django
-        try:
-            list_d = KnownDigest.objects.values('digest')
-            for dig in list_d:
-                InstantiateDigest.known_digests.append(dig.get('digest'))
-                logger.info('Set a list of known_digests')
-        except OperationalError as e:
-            logger.error(e)
-
-        # Instantiate digests included in Redis DB
-        list_dig = redis_instantiate()
-        InstantiateDigest.known_digests.extend(list_dig)
-
-
-class DigestListUpdater:
-    def append_known_digest(digest):
-        if digest is InstantiateDigest.known_digests:
-            logger.info('Digest %s already exist in the list of digest'
-                        % digest)
-        else:
-            InstantiateDigest.known_digests.append(digest)
-            logger.info('Added digest %s in the list', digest)
-
-    def remove_known_digest(digest):
-        InstantiateDigest.known_digests.remove(digest)
-        logger.info('Removed digest %s in the list', digest)
-
+logger = logging.getLogger('perform_attestation_oat')
 
 # template common fields
 TEMPLATE_PCR_FIELD = 'pcr'
@@ -114,6 +77,7 @@ class IMATemplateDesc(object):
         return data[idx]
 
     def __init__(self, name, fmt):
+        logger.debug('Init IMARecord')
         self.name = name
         self.fmt = fmt
         self.fields = fmt.split('|')
@@ -196,7 +160,7 @@ class IMARecord(object):
 
     def __del__(cls):
         logger.debug('Delete IMARecord object in structs.py')
-        cls.records = {}
+        del cls.records
 
 
 class Digest(GenericNode):
@@ -222,12 +186,12 @@ class Digest(GenericNode):
         return cls(ima_record, event_name, fake)
 
     @classmethod
-    def execute_digests_query(cls, conn, distro):
+    def execute_digests_query(cls, conn, distro, known_digests):
         if cls.digests_query_done:
             return
         # define known_digests.
         rows = list(set(cls.digests_dict.keys()) -
-                    set(InstantiateDigest.known_digests))
+                    set(known_digests))
         distribution = [distro, 'EPEL7']
         logger.info(distribution)
         query_result = conn.multiget_query(rows, 'FilesToPackages', distro,
@@ -235,7 +199,7 @@ class Digest(GenericNode):
         logger.debug('Execute digests query')
         for digest_obj in cls.digests_dict.values():
             digest_string = digest_obj.digest_string
-            if digest_string in InstantiateDigest.known_digests:
+            if digest_string in known_digests:
                 event_name = digest_obj.ima_records[0].entry['event_name']
                 digest_obj.fullpath = event_name
                 digest_obj.event_type = 'other'

@@ -70,10 +70,10 @@ class DBLibrariesAction(Action):
 
         return ln
 
-    def __init__(self, conn, distro, graph):
+    def __init__(self, conn, distro, graph, known_digests):
         self.libraries_deps_cache = {}
 
-        Digest.execute_digests_query(conn, distro)
+        Digest.execute_digests_query(conn, distro, known_digests)
 
         unknown_digests = [digest for digest in Digest.digests_dict.values()
                            if digest.event_type == '' and not digest.is_fake]

@@ -26,7 +26,7 @@ from graph import *
 from structs import *
 from util import *
 import logging
-from trust_monitor_driver.informationDigest import InformationDigest, MapDigest
+from informationDigest import InformationDigest
 
 # Node types for information flow analysis
 SUBJ_TCB = 1
@@ -39,7 +39,7 @@ OBJ_W_TARGET = 64
 OBJ_W_HIGH = 128
 OBJ_W_LOW = 256
 
-logger = logging.getLogger('django')
+logger = logging.getLogger('perform_attestation')
 
 
 class Analysis(object):
@@ -51,10 +51,6 @@ class Analysis(object):
 
     def __init__(self, analysis_name=None):
         Analysis.analysis_list.append(analysis_name)
-
-    def __del__(cls):
-        logger.debug('Delete Analysis in analysis.py')
-        cls.analysis_list = []
 
 
 class LoadTimeAnalysis(Analysis):
@@ -69,7 +65,8 @@ class LoadTimeAnalysis(Analysis):
 
         return edge_types
 
-    def __init__(self, conn, distro, graph, informationDigest, target='',
+    def __init__(self, conn, distro, graph, informationDigest,
+                 known_digests, target='',
                  tcb=[], results_dir='.', report_id=0):
         Analysis.__init__(self, 'load-time')
         self.graph = graph
@@ -77,7 +74,7 @@ class LoadTimeAnalysis(Analysis):
         self.tcb = tcb
         self.results_dir = results_dir
         self.report_id = report_id
-        Digest.execute_digests_query(conn, distro)
+        Digest.execute_digests_query(conn, distro, known_digests)
         Digest.execute_packages_query(conn, distro)
         Statistics.set_elapsed_time('time_exec_query')
 
@@ -194,8 +191,6 @@ class LoadTimeAnalysis(Analysis):
                      self.n_packages_not_security)
         informationDigest.n_packages_not_security = (
             self.n_packages_not_security)
-        logger.info('Added informationDigest object to MapDigest')
-        MapDigest.mapDigest[InformationDigest.host] = informationDigest
 
     def propagate_errors(self, topic='code+data', target_subjs=None):
         LOAD_TIME_EDGES = self.edges_types_by_topic(topic)

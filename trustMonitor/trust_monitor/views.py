@@ -2,6 +2,7 @@ from trust_monitor.serializer import HostSerializer, ResultSerializer
 from trust_monitor.serializer import NodeListSerializer, VerificationValues
 from trust_monitor.serializer import VerificationInputNFVI, DigestSerializer
 from trust_monitor.serializer import DigestRemoved
+from trust_monitor.serializer import VerificationDeleteRegisteredNode
 from trust_monitor.models import Host, KnownDigest
 from django.http import Http404
 from rest_framework.views import APIView
@@ -12,18 +13,19 @@ import json
 import requests
 import logging
 from trust_monitor.verifier.ra_verifier import RaVerifier
-from trust_monitor.verifier.structs import DigestListUpdater
+from trust_monitor.verifier.instantiateDB import *
 from django.core.exceptions import ObjectDoesNotExist
 from trust_monitor.engine import dare_connector, attest_single_node
 from trust_monitor.engine import manage_osm_vim_docker, attest_node
 from trust_monitor.engine import dashboard_connector, get_status_connectors
 from trust_monitor_driver.driverOAT import DriverOAT
-from trust_monitor_driver.informationDigest import InformationDigest
-from trust_monitor.verifier.parsingOAT import parsing
+from trust_monitor_driver.informationDigest import InformationDigest, MapDigest
 from trust_monitor_driver.driverOpenCIT import DriverCIT
 from trust_monitor_driver.driverOpenCIT import InformationAttestation
 from trust_monitor_driver.defineJsonCIT import JsonListHostCIT
 from trust_monitor_driver.driverHPE import DriverHPE
+from trust_monitor.verifier.parsingOAT import *
+import gc
 
 driver_oat = DriverOAT()
 driver_cit = DriverCIT()
@@ -36,10 +38,9 @@ logger = logging.getLogger('django')
 
 class RegisterNode(APIView):
     """
-    List of all physical host or register new host, this class has two
+    List of all physical host or register new host, this class has three
     methods, a get methods to see list of all node register with
-    Trust Monitor and
-    post method used to register a new host.
+    Trust Monitor, a post method used to register a new host and a delete method.
     """
 
     def get(self, request, format=None):
@@ -162,6 +163,48 @@ class RegisterNode(APIView):
             return Response(serializer.errors,
                             status=status.HTTP_400_BAD_REQUEST)
 
+    def delete(self, request, format=None):
+        """
+        This method return a Response that can include an error or an ok status
+        This is a delete method which uses a json object to remove a registered
+        node from the TM database.
+        The json object is formed by one parameter, that parameter is
+        mandatory.
+        The parameter of json object is: hostName.
+
+        Example: call basic-url/register_node delete and include
+        json with the previous value, the result indicates if the removed was
+        successful or if there was an error.
+
+        Args:
+            json object {'hostName': 'nfvi-node'}
+        Return:
+            - The node is unregistered from the TM application
+            - Message Error
+        """
+        logger.info('Call delete method of RegisterNode to remove a node')
+        logger.info(request.data)
+        serializer = VerificationDeleteRegisteredNode(data=request.data)
+        if serializer.is_valid():
+            logger.debug('Serialization of digest is valid')
+            logger.info('See if the node exists in database')
+            try:
+                host = Host.objects.get(hostName=serializer.data['hostName'])
+                host.delete()
+                logger.info("Host %s removed from database",
+                            host.hostName)
+                jsonMessage = {'Host %s' % host.hostName: 'removed'}
+                return Response(jsonMessage, status=status.HTTP_200_OK)
+            except ObjectDoesNotExist as objDoesNotExist:
+                logger.info('Host not found in database')
+                jsonMessage = {'Host %s' % request.data['hostName']:
+                               'not found in db'}
+                return Response(jsonMessage, status=status.HTTP_403_FORBIDDEN)
+        else:
+            logger.error('Serializaton generated an error ' +
+                         str(serializer.errors))
+            return Response(serializer.errors,
+                            status=status.HTTP_400_BAD_REQUEST)
 
 class AttestNode(APIView):
     """
@@ -350,32 +393,53 @@ class GetVerify(APIView):
                          'Distro: %s, Analysis: %s, Report_url: %s, '
                          'Report_id: %s', distro, analysis, report_url,
                          report_id)
-            infoDigest = InformationDigest()
-            check_containers = ''
             logger.info('Call parsing method to get Digest')
-            res = parsing(analysis=analysis,
-                          checked_containers=check_containers,
-                          report_url=report_url, report_id=report_id,
-                          infoDigest=infoDigest)
-            if res == 2:
-                return Response(res, status=status.HTTP_400_BAD_REQUEST)
-            ra_verifier = RaVerifier()
-            logger.info('Call verifier method of RaVerifier')
-            result = ra_verifier.verifier(distro=distro, analysis=analysis,
-                                          infoDigest=infoDigest,
-                                          checked_containers=check_containers,
-                                          report_id=report_id)
-            logger.debug('Return of method and result is: %s', result)
-            if result is True:
-                result = 0
-            elif result is False:
-                result = 1
-            return Response(int(result), status=status.HTTP_200_OK)
+            parsingOAT = ParsingOAT()
+            from subprocess import *
+            bash = ("python trust_monitor/verifier/perform_attestation_oat.py"
+                    " --analysis " + str(analysis) + " --report_url "
+                    + str(report_url) + " --distro " + str(distro) +
+                    " --report_id " + str(report_id) + " --listdigest " +
+                    " ".join(item for item in InstantiateDigest.known_digests)
+                    + " --portCassandra " + settings.CASSANDRA_PORT +
+                    " --ipCassandra " + settings.CASSANDRA_LOCATION)
+            process = Popen(bash.split(), stdout=PIPE, stderr=PIPE)
+            out, err = process.communicate()
+            logger.info('end comunicate ')
+            if not err:
+                info_digest = InformationDigest()
+                list_data = out.split('\n')
+                result = int(list_data[0])
+                if result == 2:
+                    return Response(result,
+                                    status=(status.
+                                            HTTP_500_INTERNAL_SERVER_ERROR))
+                info_digest.list_not_found = list_data[1]
+                info_digest.list_fake_lib = list_data[2]
+                info_digest.n_digests_ok = int(list_data[3])
+                info_digest.n_digests_not_found = int(list_data[4])
+                info_digest.n_digests_fake_lib = int(list_data[5])
+                info_digest.list_containers = list_data[6]
+                info_digest.list_prop_not_found = list_data[7]
+                info_digest.n_packages_ok = int(list_data[8])
+                info_digest.n_packages_security = int(list_data[9])
+                info_digest.n_packages_not_security = int(list_data[10])
+                info_digest.n_packages_unknown = int(list_data[11])
+                info_digest.host = list_data[12]
+                MapDigest.mapDigest[info_digest.host] = info_digest
+                del info_digest
+                return Response(result, status=status.HTTP_200_OK)
+            else:
+                logger.error('Impossible to perform attestation')
+                logger.error(err)
+                return Response(2, status=(status.
+                                           HTTP_500_INTERNAL_SERVER_ERROR))
         else:
             res = 2
             logger.error('Serialization generated an error ' +
                          str(serializer.errors))
             return Response(res, status=status.HTTP_400_BAD_REQUEST)
+        return Response(1, status.HTTP_200_OK)
 
 
 class AttestAllNFVI(APIView):

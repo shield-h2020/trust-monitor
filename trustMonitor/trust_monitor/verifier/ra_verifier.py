@@ -21,7 +21,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library.  If not, see
 # <http://www.gnu.org/licenses/>.
-
+import gc
 import os
 import sys
 import getopt
@@ -37,11 +37,11 @@ from action import *
 from analysis import *
 import networkx as nx
 from django.conf import settings
-from trust_monitor_driver.informationDigest import InformationDigest
+from informationDigest import InformationDigest
 import logging
 
 # use logging system of django.
-logger = logging.getLogger('django')
+logger = logging.getLogger('perform_attestation')
 
 # if graph type is 'auto', RA Verifier determines the best choice depending
 # on available information from IMA measurements list
@@ -52,19 +52,22 @@ class RaVerifier():
 
     def __del__(self):
         logger.debug('delete RaVerifier and clean structures')
-        Digest.digests_dict = {}
-        Digest.digests_query_done = False
-        Digest.packages_query_done = False
-        Digest.packages_query = set()
-        Package.pkg_dict = {}
-        Subject.subj_label_dict = {}
-        Object.obj_label_dict = {}
+        del Digest.digests_dict
+        del Digest.digests_query_done
+        del Digest.packages_query_done
+        del Digest.packages_query
+        del Package.pkg_dict
+        del Subject.subj_label_dict
+        del Object.obj_label_dict
+
+    def __init__(self):
+        logger.info('Set structures')
+        Analysis.analysis_list = []
 
     def verifier(self, distro, analysis, infoDigest,
-                 checked_containers, report_id):
+                 checked_containers, report_id, known_digests, port, ip):
         logger.info('In verifier method of RaVerifier.')
-        cassandraHost = (settings.CASSANDRA_LOCATION + ':' +
-                         settings.CASSANDRA_PORT)
+        cassandraHost = (ip + ':' + port)
         logger.info('Define the Cassandra host: %s', cassandraHost)
         graph_type = 'auto'
         keyspace = 'PackagesDB'
@@ -105,8 +108,8 @@ class RaVerifier():
         if graph_type == 'digests':
             logger.info('Define query to cassandra for graph_type %s',
                         str(graph_type))
-            FileTypeAggregation(conn, distro, graph)
-            DBLibrariesAction(conn, distro, graph)
+            FileTypeAggregation(conn, distro, graph, known_digests)
+            DBLibrariesAction(conn, distro, graph, known_digests)
             logger.info('Aggregation and DBLibrariesAction are done')
             # no distinction is possible between code and data
         elif graph_type == 'lsm':
@@ -240,7 +243,8 @@ class RaVerifier():
                                      target=target, tcb=tcb,
                                      results_dir=results_dir,
                                      report_id=report_id,
-                                     informationDigest=infoDigest)
+                                     informationDigest=infoDigest,
+                                     known_digests=known_digests)
                 a.propagate_errors(load_time_topic)
                 if len(priv_processes) > 0 and 'data' not in load_time_topic:
                     a.propagate_errors('data', priv_processes)
@@ -304,4 +308,5 @@ class RaVerifier():
         logger.info(
             'The global result of attestation is: %s' %
             ('trusted' if global_result else 'untrusted'))
-        return global_result
+        global_result_list = [global_result, infoDigest]
+        return global_result_list

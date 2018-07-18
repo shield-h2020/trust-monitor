@@ -11,6 +11,7 @@ from django.http import HttpRequest
 import redis
 import pycassa
 from trust_monitor.verifier.structs import *
+from trust_monitor.verifier.instantiateDB import *
 from rest_framework.response import Response
 from trust_monitor_driver.driverOAT import DriverOAT
 
@@ -193,7 +194,7 @@ def redis_db(list_digest):
     logger.info('Added digest to Redis DB')
     logger.info('list digest %s' % list_digest)
     try:
-        from trust_monitor.verifier.structs import DigestListUpdater
+        from trust_monitor.verifier.instantiateDB import DigestListUpdater
         redisDB = redis.Redis(host='tm_database_redis', port='6379')
         for digest in list_digest:
             for key, value in digest.items():

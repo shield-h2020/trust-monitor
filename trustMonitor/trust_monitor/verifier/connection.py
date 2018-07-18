@@ -26,7 +26,7 @@ from util import *
 import pycassa
 import logging
 
-logger = logging.getLogger('django')
+logger = logging.getLogger('perform_attestation')
 
 
 class DBConnection(object):

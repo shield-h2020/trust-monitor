@@ -53,3 +53,6 @@ class VerificationValues(serializers.Serializer):
 
 class VerificationInputNFVI(serializers.Serializer):
     node_id = serializers.CharField()
+
+class VerificationDeleteRegisteredNode(serializers.Serializer):
+    hostName = serializers.CharField()

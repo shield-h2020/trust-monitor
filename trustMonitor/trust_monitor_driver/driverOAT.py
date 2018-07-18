@@ -213,7 +213,6 @@ class DriverOAT():
                 logger.debug('Search node: ' + n['node']
                              + ' in the database of Django')
                 host = Host.objects.get(hostName=n['node'])
-                InformationDigest.host = n['node']
                 logger.info('Node found ' + host.hostName + ' with '
                             'this analysisType: ' + host.analysisType
                             + listvnf)

@@ -126,8 +126,6 @@ CASSANDRA_PORT = '9160'
 
 # If you are using an OAT driver, configure this parameter
 OAT_LOCATION = ''
-# If you are using a CIT driver, configure this parameter
-CIT_LOCATION = ''
 
 LOGGING = {
     'version': 1,

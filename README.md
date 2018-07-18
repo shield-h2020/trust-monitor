@@ -110,8 +110,8 @@ CASSANDRA_PORT = '9160'
 where Apache Cassandra IP address refers to the instance running the whitelist
 database and the default port is `9160`.
 
-Then, you also need to configure the `OAT_LOCATION` and `CIT_LOCATION` parameters
-if you are using either of the attestation frameworks (more in following sections).
+Then, you also need to configure the `OAT_LOCATION` if you are using the OAT
+attestation framework (more in following sections).
 
 Finally, before running the Docker Compose build script you need to export
 the following environment variables in the same shell:
@@ -340,7 +340,18 @@ PATH_DRIVER = '/$OAT_TM_DIR/start_verify.py'
 
 ## Connect the TM to an Open CIT attestation framework
 
-You need to configure the `CIT_LOCATION` variable in the `trustMonitor/trust_monitor_django/settings.py` file by adding the IP address of the CIT Attestation Server.
+You need to configure the following variables in the `trustMonitor/trust_monitor_driver/driverCITSettings.py`
+file by adding the IP address of the CIT Attestation Server and the credentials
+to access its REST API.
+
+```
+# IP address of the CIT attestation server
+CIT_LOCATION = ''
+# Username for authenticating to the REST API of the CIT attestation server
+CIT_API_LOGIN = 'admin'
+# Password for the user allowed to contact the REST API of the CIT attestation server
+CIT_API_PASSWORD = ''
+```
 
 ## Connect the TM to the HPE switch attestation framework
 

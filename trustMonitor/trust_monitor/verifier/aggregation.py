@@ -34,9 +34,8 @@ class Aggregation(object):
 
 
 class FileTypeAggregation(Aggregation):
-    def __init__(self, conn, distro, graph):
-        logger.debug('In File Type Aggregation used to linked digest')
-        Digest.execute_digests_query(conn, distro)
+    def __init__(self, conn, distro, graph, known_digests):
+        Digest.execute_digests_query(conn, distro, known_digests)
 
         for digest_obj in Digest.digests_dict.values():
             # set of instances which a digest is linked to

@@ -9,5 +9,5 @@ class TrustmonitorConfig(AppConfig):
         if 'runserver' not in sys.argv:
             return True
 
-        from trust_monitor.verifier.structs import InstantiateDigest
+        from trust_monitor.verifier.instantiateDB import InstantiateDigest
         InstantiateDigest.instantiate_known_digest()

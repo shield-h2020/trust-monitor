@@ -12,13 +12,13 @@ from trust_monitor.verifier.parsingCIT import ParsingCIT, XML_CIT_ReportParser
 from trust_monitor_driver.informationDigest import InformationDigest, MapDigest
 from trust_monitor.verifier.ra_verifier import RaVerifier
 import time
+from driverCITSettings import *
 
 requests.packages.urllib3.disable_warnings()
 
 logger = logging.getLogger('django')
 distCassandra = settings.CASSANDRA_LOCATION
 port = settings.CASSANDRA_PORT
-verifier_cit = settings.CIT_LOCATION
 defineJsonCIT = DefineJsonCIT()
 
 
@@ -41,7 +41,7 @@ class DriverCIT():
         logger.info('In pollHost method in driverOpenCIT')
         list_attest = []
         for host in host_list:
-            url = ('https://'+verifier_cit +
+            url = ('https://'+ CIT_LOCATION +
                    ':8443/mtwilson/v2/host-attestations')
             logger.info('Analyze node: ' + host.hostName)
             try:
@@ -52,8 +52,8 @@ class DriverCIT():
                 start = getTime()
                 respo = requests.post(url,
                                       auth=HTTPBasicAuth(
-                                        'admin',
-                                        'u1iGYAz3DSI9csf73qg2zA'),
+                                        CIT_API_LOGIN,
+                                        CIT_API_PASSWORD),
                                       data=json.dumps(jsonAttest),
                                       headers=self.headers_json, verify=False)
                 if respo.status_code == 200:
@@ -62,14 +62,14 @@ class DriverCIT():
                                 (end-start))
                     start = getTime()
                     logger.info('Get report from %s' % host.hostName)
-                    url = ("https://"+verifier_cit +
+                    url = ("https://"+ CIT_LOCATION +
                            ":8443/mtwilson/v2/host-attestations?nameEqualTo=" +
                            host.hostName)
                     report = requests.get(url,
                                           headers=self.headers_xml,
                                           auth=HTTPBasicAuth(
-                                            'admin',
-                                            'u1iGYAz3DSI9csf73qg2zA'),
+                                            CIT_API_LOGIN,
+                                            CIT_API_PASSWORD),
                                           verify=False)
                     if report.status_code == 200:
                         parsingCIT = ParsingCIT()
@@ -139,7 +139,7 @@ class DriverCIT():
     def getStatus(self, message):
         logger.info('Get Status of Driver OpenCIT')
 
-        if not verifier_cit:
+        if not CIT_LOCATION:
             logger.info('The CIT driver is not configured')
             message.append({'Driver CIT configured': False})
             return message
@@ -147,7 +147,7 @@ class DriverCIT():
             message.append({'Driver CIT configured': True})
 
         try:
-            url = 'https://'+verifier_cit+':8443/mtwilson-portal'
+            url = 'https://'+CIT_LOCATION+':8443/mtwilson-portal'
             logger.debug('Try to contact OpenCIT on %s' % url)
             resp = requests.get(url, verify=False, timeout=5)
             logger.debug('Status = ' + str(resp.status_code))

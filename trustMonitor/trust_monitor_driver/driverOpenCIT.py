@@ -13,6 +13,7 @@ from trust_monitor_driver.informationDigest import InformationDigest, MapDigest
 from trust_monitor.verifier.ra_verifier import RaVerifier
 import time
 from driverCITSettings import *
+from trust_monitor.verifier.instantiateDB import InstantiateDigest
 
 requests.packages.urllib3.disable_warnings()
 
@@ -83,12 +84,18 @@ class DriverCIT():
                         start = getTime()
                         # Call the verify method from the ra_verifier.py
                         ra_verifier = RaVerifier()
-                        infoDigest = InformationDigest()
+                        info_digest = InformationDigest()
+
+                        known_digests=" ".join(item for item in InstantiateDigest.known_digests)
+
                         result = ra_verifier.verifier(host.distribution,
                                                       host.analysisType,
-                                                      infoDigest,
+                                                      info_digest,
                                                       checked_containers=False,
-                                                      report_id=0)
+                                                      report_id=0,
+                                                      known_digests=known_digests,
+                                                      port=port,
+                                                      ip=distCassandra)
                         end = getTime()
                         logger.info('Performance: Ra_verifier: %s ms' %
                                     (end-start))
@@ -97,6 +104,10 @@ class DriverCIT():
                         else:
                             trust_level = 'untrusted'
                         info_att_cit.changeLvlTrust(trust_level)
+
+                        MapDigest.mapDigest[host.hostName]=info_digest
+                        del info_digest
+
                         response = self.createSingleJson(host=host,
                                                          trust_lvl=trust_level)
                         try:

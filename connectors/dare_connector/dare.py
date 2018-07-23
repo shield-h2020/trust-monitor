@@ -3,22 +3,32 @@ from flask import request
 import json
 import logging
 import flask
+import dare_settings
 
 app = flask.Flask('dare_connector')
 
 
 @app.route("/dare_connector/attest_result", methods=["POST"])
-def result_attestation():
+def attest_result():
     app.logger.debug('In post method of dare_connector/attest_result')
-    if request.is_json:
-        app.logger.info('Received a json object')
-        data = request.get_json()
-        jsonData = json.dumps(data, ensure_ascii=False)
-        app.logger.info('The data are: %s' % jsonData)
-        jsonResponse = {'Message': 'Received'}
-        return flask.Response(json.dumps(jsonResponse))
-    else:
-        jsonError = {'Error': 'Accept only json objects'}
+    try:
+
+        if request.is_json:
+            app.logger.info('Received a json object')
+            data = request.get_json()
+            jsonData = json.dumps(data, ensure_ascii=False)
+            app.logger.info('Send data to DARE: %s' % jsonData)
+            url = dare_settings.DARE_BASE_URL
+            app.logger.info(url)
+            response = requests.post(url, data=jsonData)
+            jsonResponse = {'Result': 'True'}
+            return flask.Response(json.dumps(jsonResponse))
+        else:
+            jsonError = {'Error': 'Accept only json objects'}
+            app.logger.error(jsonError)
+            return flask.Response(json.dumps(jsonError))
+    except Exception as e:
+        jsonError = {'Error': e}
         app.logger.error(jsonError)
         return flask.Response(json.dumps(jsonError))
 
@@ -26,7 +36,7 @@ def result_attestation():
 @app.route("/dare_connector", methods=["GET"])
 def getStatus():
     app.logger.debug('In get method of dare_connector')
-    jsonResponse = {'Runnging': True}
+    jsonResponse = {'Active': True}
     app.logger.info(jsonResponse)
     return flask.Response(json.dumps(jsonResponse))
 

@@ -6,15 +6,9 @@ RUN mkdir /logs
 
 WORKDIR /usr/src/app
 
-COPY requirements.txt .
+COPY . .
 
 RUN pip install --no-cache-dir -r requirements.txt
-
-COPY centos_ping_vnfd.yaml .
-
-COPY centos_pong_vnfd.yaml .
-
-COPY store.py .
 
 EXPOSE 5000
 

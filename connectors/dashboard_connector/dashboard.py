@@ -10,11 +10,11 @@ import dashboard_settings
 app = Flask('dashboard_connector')
 
 
-@app.route("/dashboard_connector/attestation_failed",
+@app.route("/dashboard_connector/attest_notification",
            methods=["POST"])
-def attestation_failed():
+def attest_notification():
     app.logger.debug('In post method of'
-                     ' dashboard_connector/attestation_failed')
+                     ' dashboard_connector/attest_notification')
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(
             host=dashboard_settings.DASHBOARD_HOSTNAME,
@@ -44,7 +44,7 @@ def attestation_failed():
                           routing_key=dashboard_settings.DASHBOARD_TOPIC,
                           body=jsonData)
 
-    app.logger.info("Published notification on failed attestation \
+    app.logger.info("Published notification on attestation \
         from TM to dashboard.")
     app.logger.debug(jsonData)
     channel.close()

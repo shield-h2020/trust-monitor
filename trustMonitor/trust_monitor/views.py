@@ -40,7 +40,7 @@ class RegisterNode(APIView):
     """
     List of all physical host or register new host, this class has three
     methods, a get methods to see list of all node register with
-    Trust Monitor, a post method used to register a new host and a delete method.
+    Trust Monitor, a post method used to register a new host and a delete method
     """
 
     def get(self, request, format=None):
@@ -205,6 +205,7 @@ class RegisterNode(APIView):
                          str(serializer.errors))
             return Response(serializer.errors,
                             status=status.HTTP_400_BAD_REQUEST)
+
 
 class AttestNode(APIView):
     """

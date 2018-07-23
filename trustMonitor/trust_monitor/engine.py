@@ -41,21 +41,22 @@ def dare_connector(jsonResult):
                         status=status.HTTP_404_NOT_FOUND)
 
 
-def dashboard_connector(jsonFailed):
-    if (jsonFailed['NFVI'] == 'untrusted'):
-        logger.info('Send attestation failed to dashboard connector')
-        try:
-            url = (settings.BASIC_URL_DASHBOARD + "/dashboard_connector/"
-                   "attestation_failed")
-            response = requests.post(url, data=json.dumps(jsonFailed),
-                                     headers=headers)
-            logger.info('Attestation failed sent to dashboard connector')
-            return response
-        except ConnectionError as e:
-            error = {'Error impossible to contact': url}
-            logger.error('Error: ' + str(error))
-            return Response(error,
-                            status=status.HTTP_404_NOT_FOUND)
+def dashboard_connector(jsonMessage):
+    # if (jsonMessage['NFVI'] == 'untrusted'):
+    logger.info('Send attestation notification to dashboard connector')
+    try:
+        url = (
+            settings.BASIC_URL_DASHBOARD +
+            "/dashboard_connector/attest_notification")
+        response = requests.post(url, data=json.dumps(jsonMessage),
+                                 headers=headers)
+        logger.info('Attestation failed sent to dashboard connector')
+        return response
+    except ConnectionError as e:
+        error = {'Error impossible to contact': url}
+        logger.error('Error: ' + str(error))
+        return Response(error,
+                        status=status.HTTP_404_NOT_FOUND)
 
 
 def manage_osm_vim_docker():

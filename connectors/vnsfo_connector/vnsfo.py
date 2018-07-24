@@ -21,7 +21,7 @@ def getStatus():
 
 
 # Get list of VIM with their IP throught vNSFO
-@app.route("vnsfo_connector/list_vim_instances", methods=["GET"])
+@app.route("/vnsfo_connector/list_vim_instances", methods=["GET"])
 def listVimInstances():
     app.logger.debug('Get the list of VIMs from vNSFO')
     list_vim_ip = []
@@ -29,15 +29,6 @@ def listVimInstances():
     # TODO: translate jsonResult in list_vim_ip
     app.logger.info(list_vim_ip)
     return flask.Response(json.dumps(list_vim_ip))
-
-
-# API call towards VNSFO
-def getVimInformationFromVNSFO():
-    url = vnsfo_baseurl + "/nfvi/nodes"
-    app.logger.info(url)
-    response = requests.get(url)
-    logger.debug('Response received from vNSFO API: ' + response.text)
-    return response.json()
 
 
 # Get the list of vnfs
@@ -49,15 +40,6 @@ def listVnfInstances():
     # TODO: translate jsonResult in list_vnf
     jsonResponse = {'vim_vnf': list_vnf}
     return flask.Response(json.dumps(jsonResponse))
-
-
-# API call toward vnsfo
-def getVNSFInformationFromVNSFO():
-    url = vnsfo_baseurl + "/vnsf/running"
-    app.logger.info(url)
-    response = requests.get(url)
-    logger.debug('Response received from vNSFO API: ' + response.text)
-    return response.json()
 
 
 # started from list of ip of node to get the name of vim with their ip, if the
@@ -87,6 +69,24 @@ def get_vim_by_ip():
                 app.logger.debug('Remove vim to the list')
                 list_vim_ip.remove(vim)
     return flask.Response(json.dumps(list_vim_ip))
+
+
+# API call toward vnsfo
+def getVNSFInformationFromVNSFO():
+    url = vnsfo_baseurl + "/vnsf/running"
+    app.logger.info(url)
+    response = requests.get(url)
+    logger.debug('Response received from vNSFO API: ' + response.text)
+    return response.json()
+
+
+# API call towards VNSFO
+def getVimInformationFromVNSFO():
+    url = vnsfo_baseurl + "/nfvi/nodes"
+    app.logger.info(url)
+    response = requests.get(url)
+    logger.debug('Response received from vNSFO API: ' + response.text)
+    return response.json()
 
 
 if __name__ == '__main__':

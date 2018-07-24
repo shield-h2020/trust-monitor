@@ -155,10 +155,12 @@ LOGGING = {
 }
 
 BASIC_URL_DARE = 'http://tm_dare_connector:5000'
-BASIC_URL_STORE = 'http://localhost:5100'
-BASIC_URL_DASHBOARD = 'http://tm_dashboard_connector:5000'
-BASIC_URL_MANAGEOSM = 'http://tm_manage_osm_connector:5000'
 BASIC_URL_STORE = 'http://tm_store_connector:5000'
+BASIC_URL_DASHBOARD = 'http://tm_dashboard_connector:5000'
+# BASIC_URL_MANAGEOSM = 'http://tm_manage_osm_connector:5000'
+BASIC_URL_VNSFO = 'http://tm_vnsfo_connector:5000'
+BASIC_URL_STORE = 'http://tm_store_connector:5000'
+BASIC_URL_VIMEMU = 'http://tm_vimemu_connector:5000'
 
 try:
     LOCAL_SETTINGS

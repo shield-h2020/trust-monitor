@@ -16,7 +16,7 @@ from trust_monitor.verifier.ra_verifier import RaVerifier
 from trust_monitor.verifier.instantiateDB import *
 from django.core.exceptions import ObjectDoesNotExist
 from trust_monitor.engine import dare_connector, attest_single_node
-from trust_monitor.engine import manage_osm_vim_docker, attest_node
+from trust_monitor.engine import vnsfo_connector, attest_node
 from trust_monitor.engine import dashboard_connector, get_status_connectors
 from trust_monitor_driver.driverOAT import DriverOAT
 from trust_monitor_driver.informationDigest import InformationDigest, MapDigest
@@ -474,7 +474,7 @@ class AttestAllNFVI(APIView):
         logger.info('Call this method to attest all node register to Trust'
                     ' Monitor')
         logger.debug('Call driver to manage all nodes running in this time')
-        result = manage_osm_vim_docker()
+        result = vnsfo_connector()
         if (type(result) != dict):
             logger.error('Get object type response')
             logger.error('Response status_code = '

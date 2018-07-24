@@ -59,29 +59,34 @@ def dashboard_connector(jsonMessage):
                         status=status.HTTP_404_NOT_FOUND)
 
 
-def manage_osm_vim_docker():
+def vnsfo_connector():
     logger.info('Start procedure to obtain the list of VIM with '
                 'docker and ip')
-    urlManageOSM = (settings.BASIC_URL_MANAGEOSM +
-                    '/manage_osm_connector/osm_list_vim_ip')
+    url_vnsfo_connector = (
+        settings.BASIC_URL_VNSFO +
+        'vnsfo/list_vim_instances'
+    )
     try:
-        vim_ip = requests.get(urlManageOSM).json()
+        vim_ip = requests.get(url_vnsfo_connector).json()
         if type(vim_ip) == dict:
             return Response(vim_ip,
                             status=status.HTTP_404_NOT_FOUND)
-        urlManageOSM = (settings.BASIC_URL_MANAGEOSM +
-                        '/manage_osm_connector/osm_vim_docker')
-        responseJson = requests.post(urlManageOSM, json=vim_ip).json()
+
+        url_vimemu_connector = (
+            settings.BASIC_URL_VIMEMU +
+            '/vimemu/list_instances')
+
+        responseJson = requests.post(url_vimemu_connector, json=vim_ip).json()
         list_vim = []
         list_vim_docker = responseJson['VIM']
-        logger.info('The list of VIM getting of manage_osm is %s'
+        logger.info('The list of VIM-emu instances are  %s'
                     % str(list_vim_docker))
         attest_list = []
         for vim in list_vim_docker:
-            logger.debug('Analyze %s' % vim['vim'])
+            logger.debug('Analyse %s' % vim['vim'])
             ip_vim = vim['ip']
             try:
-                logger.debug('Search ip: %s in the database of Django'
+                logger.debug('Search ip: %s in TM database...'
                              % ip_vim)
                 host = Host.objects.get(address=ip_vim)
                 logger.debug('Node found ' + host.hostName + ' with ip '
@@ -89,7 +94,7 @@ def manage_osm_vim_docker():
                 list_vim.append(vim['vim'])
                 list_docker_id = vim['docker_id']
                 if not list_docker_id:
-                    logger.warning('No docker in running')
+                    logger.warning('No Docker running in the VIM')
                     jsonAttest = {'node': host.hostName}
                 else:
                     logger.debug('With this docker id: %s'
@@ -107,7 +112,7 @@ def manage_osm_vim_docker():
         return Response(responseJson,
                         status=status.HTTP_404_NOT_FOUND)
     except ConnectionError as e:
-        jsonError = {'Error': 'Impossible contact to manage osm connector'}
+        jsonError = {'Error': 'Impossible to contact vNSFO/VIM-emu connectors'}
         logger.error(jsonError)
         return Response(jsonError,
                         status=status.HTTP_404_NOT_FOUND)
@@ -116,20 +121,20 @@ def manage_osm_vim_docker():
     return call_poll_host(attest_list)
 
 
-# start with list_vim: ['{'VIM': 'name_vim'}'] to get the vnfs in execution
-# on this vim communicate with manage_osm_connector that comunicate with OSM.
-def get_list_vnf(list_vim):
+def get_list_vnf():
     try:
-        logger.info('Call method of manage_osm_connector to get the '
+        logger.info('Call method of vnsfo_connector to get the '
                     'name of vnfs from vim: %s' % str(list_vim))
-        urlManageOSM = (settings.BASIC_URL_MANAGEOSM +
-                        '/manage_osm_connector/get_list_vnf')
-        jsonListVim = {'VIM': list_vim}
-        responseJson = requests.post(urlManageOSM, json=jsonListVim).json()
+        url_vnsfo_connector = (
+            settings.BASIC_URL_VNSFO +
+            'vnsfo/list_vnf_instances'
+        )
+        responseJson = requests.get(
+            url_vnsfo_connector).json()
         logger.info(responseJson)
         return responseJson
     except ConnectionError as e:
-        jsonError = {'Error': 'Impossible contact to manage osm connector'}
+        jsonError = {'Error': 'Impossible to contact VNSFO connector'}
         logger.error(jsonError)
         return False
 
@@ -137,7 +142,7 @@ def get_list_vnf(list_vim):
 def check_vnfs(list_vim_vnf, list_vim):
     if list_vim_vnf is False:
         logger.warning('Impossible to get the information of vnfs '
-                       'for each vim')
+                       'for each vim (list of vNSF is empty)')
     if isinstance(list_vim_vnf, dict):
         list_vnf = []
         for vim in list_vim_vnf['vim_vnf']:
@@ -256,7 +261,7 @@ def attest_node(list_node):
             if host.driver == 'OAT':
                 if node['vnfs']:
                     logger.info('Add ip address to the list used to'
-                                ' communicate with OSM connector')
+                                ' communicate with vNSFO connector')
                     list_ip.append(host.address)
                 node_list.append(node)
             else:
@@ -268,17 +273,20 @@ def attest_node(list_node):
                          node['node']}
             logger.warning(errorHost)
         except KeyError as keyErr:
-            logger.debug('Not is necessary communicate with osm, because for '
-                         'this node not is considered the analysis of docker')
+            logger.debug('Node discarded because no Docker analysis required.')
             node_list.append(node)
     if list_ip:
         logger.info('The list of ip address are: '+str(list_ip))
         logger.info('Use ip to get vim name used to obtain the name of vnf to '
                     'get the digest from the store connector')
         jsonListIP = {'ip': list_ip}
-        urlManageOSM = (settings.BASIC_URL_MANAGEOSM +
-                        '/manage_osm_connector/get_vim_by_ip')
-        list_info_vim = requests.post(urlManageOSM, json=jsonListIP).json()
+        url_vnsfo_connector = (
+            settings.BASIC_URL_VNSFO +
+            'vnsfo/get_vim_by_ip'
+        )
+        list_info_vim = requests.post(
+            url_vnsfo_connector,
+            json=jsonListIP).json()
         if list_info_vim and isinstance(list_info_vim, list):
             for vim in list_info_vim:
                 list_vim.append(vim['vim'])
@@ -314,17 +322,24 @@ def attest_single_node(node):
         list_ip.append(host.address)
         logger.info('Use ip to get vim name')
         jsonListIP = {'ip': list_ip}
-        urlManageOSM = (settings.BASIC_URL_MANAGEOSM +
-                        '/manage_osm_connector/get_vim_by_ip')
-        list_info_vim = requests.post(urlManageOSM, json=jsonListIP).json()
+        url_vnsfo_connector = (
+            settings.BASIC_URL_VNSFO +
+            'vnsfo/get_vim_by_ip'
+        )
+        list_info_vim = requests.post(
+            url_vnsfo_connector,
+            json=jsonListIP).json()
         if list_info_vim and isinstance(list_info_vim, dict):
             logger.warning(list_info_vim)
             return Response(list_info_vim,
                             status=status.HTTP_404_NOT_FOUND)
         logger.info(list_info_vim)
-        urlManageOSM = (settings.BASIC_URL_MANAGEOSM +
-                        '/manage_osm_connector/osm_vim_docker')
-        responseJson = requests.post(urlManageOSM, json=list_info_vim).json()
+        url_vimemu_connector = (
+            settings.BASIC_URL_VIMEMU +
+            '/vimemu/list_instances')
+        responseJson = requests.post(
+            url_vimemu_connector,
+            json=list_info_vim).json()
         list_vim_docker = responseJson['VIM']
         logger.info('The information are %s'
                     % str(list_vim_docker))
@@ -347,7 +362,7 @@ def attest_single_node(node):
         return Response(responseJson,
                         status=status.HTTP_404_NOT_FOUND)
     except ConnectionError as e:
-        jsonError = {'Error': 'Impossible contact to manage osm connector'}
+        jsonError = {'Error': 'Impossible to contact vNSFO/VIMEMU connector'}
         logger.error(jsonError)
         return Response(jsonError,
                         status=status.HTTP_404_NOT_FOUND)
@@ -378,9 +393,12 @@ def get_status_connectors(message):
     urlDashboard = settings.BASIC_URL_DASHBOARD + '/dashboard_connector'
     nameConnector = 'Dashboard'
     getStatusConnector(message, urlDashboard, nameConnector)
-    urlManageOSM = settings.BASIC_URL_MANAGEOSM + '/manage_osm_connector'
-    nameConnector = 'Manage_OSM'
-    getStatusConnector(message, urlManageOSM, nameConnector)
+    urlVNSFO = settings.BASIC_URL_VNSFO + '/vnsfo_connector'
+    nameConnector = 'VNSFO'
+    getStatusConnector(message, urlVNSFO, nameConnector)
+    urlVIMEMU = settings.BASIC_URL_VIMEMU + '/vimemu_connector'
+    nameConnector = 'VIMEMU'
+    getStatusConnector(message, urlVIMEMU, nameConnector)
     urlStore = settings.BASIC_URL_STORE + '/store_connector'
     nameConnector = 'Store'
     getStatusConnector(message, urlStore, nameConnector)

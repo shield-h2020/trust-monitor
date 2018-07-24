@@ -2,9 +2,9 @@ version: '3'
 
 services:
 
-  tm_rabbitmq_server:
-    image: ra/connectors/rabbitmq_server
-    build: ./connectors/dashboard_connector/server-rabbitmq
+  #tm_rabbitmq_server:
+  #  image: ra/connectors/rabbitmq_server
+  #  build: ./connectors/dashboard_connector/server-rabbitmq
 
   tm_dashboard_connector:
     image: ra/connectors/dashboard_connector
@@ -16,14 +16,14 @@ services:
     image: ra/connectors/dare_connector
     build: ./connectors/dare_connector
 
-  tm_manage_osm_connector:
-    image: ra/connectors/manage_osm_connector
-    build:
-      context: ./connectors/manage_osm_connector
-      args:
-        - osm_ip=${OSM_IP}
-    extra_hosts:
-      - "osm-r3:${OSM_IP}"
+  #tm_manage_osm_connector:
+  #  image: ra/connectors/manage_osm_connector
+  #  build:
+  #    context: ./connectors/manage_osm_connector
+  #    args:
+  #      - osm_ip=${OSM_IP}
+  #  extra_hosts:
+  #    - "osm-r3:${OSM_IP}"
 
   tm_store_connector:
     image: ra/connectors/store_connector
@@ -33,6 +33,13 @@ services:
     image: ra/connectors/redis
     build: ./connectors/database
 
+  tm_vnsfo_connector:
+    image: ra/connectors/tm_vnsfo_connector
+    build: ./connectors/vnsfo_connector
+
+  tm_vimemu_connector:
+    image: ra/connectors/tm_vimemu_connector
+    build: ./connectors/vimemu_connector
 
   reverse_proxy:
     image: ra/trust_monitor/reverse_proxy
@@ -61,9 +68,11 @@ services:
     links:
       - tm_dare_connector:tm_dare_connector
       - tm_dashboard_connector:tm_dashboard_connector
-      - tm_manage_osm_connector:tm_manage_osm_connector
+    #  - tm_manage_osm_connector:tm_manage_osm_connector
       - tm_store_connector:tm_store_connector
       - tm_database_redis:tm_database_redis
+      - tm_vnsfo_connector:tm_vnsfo_connector
+      - tm_vimemu_connector:tm_vimemu_connector
     volumes:
       - './logs/tm_django_app:/logs'
       - './trustMonitor/docker/db:/db'

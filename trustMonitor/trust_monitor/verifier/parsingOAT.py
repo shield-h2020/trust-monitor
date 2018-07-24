@@ -6,6 +6,7 @@ from parser import ContainerCheckAnalysis
 import logging
 import gc
 import xmltodict
+import ssl
 # use logging system of django.
 logger = logging.getLogger('perform_attestation')
 
@@ -22,6 +23,7 @@ class ParsingOAT():
         IMARecord.records = []
         Subject.subj_label_dict = {}
         Object.obj_label_dict = {}
+        ssl._create_default_https_context = ssl._create_unverified_context
 
     def parsing(self, analysis, checked_containers,
                 report_url, report_id, infoDigest):

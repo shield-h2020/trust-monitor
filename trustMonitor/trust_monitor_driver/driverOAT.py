@@ -18,7 +18,7 @@ requests.packages.urllib3.disable_warnings()
 logger = logging.getLogger('django')
 distCassandra = settings.CASSANDRA_LOCATION
 port = settings.CASSANDRA_PORT
-verifier = settings.OAT_LOCATION
+verifier = OAT_LOCATION
 jsonSingleHost = JsonSingleHost()
 jsonListHost = JsonListHost()
 
@@ -64,7 +64,7 @@ class DriverOAT():
             jsonAnalysis = {
                     'name': analysis,
                     'module': 'RAVerifier', 'version': '2',
-                    'url': PATH_DRIVER,
+                    'url': PATH_CALLBACK,
                     'deleted': '0',
                     'required_pcr_mask': '000000'}
             resp = requests.post(url, data=json.dumps(jsonAnalysis),

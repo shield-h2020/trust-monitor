@@ -26,6 +26,7 @@ from trust_monitor_driver.defineJsonCIT import JsonListHostCIT
 from trust_monitor_driver.driverHPE import DriverHPE
 from trust_monitor.verifier.parsingOAT import *
 import gc
+import urlparse
 
 driver_oat = DriverOAT()
 driver_cit = DriverCIT()
@@ -336,7 +337,7 @@ class AttestNode(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
 
-class StatusTrustMonitor(APIView):
+class Status(APIView):
     """
     Return status of trust Monitor used to verify if all component work.
     """
@@ -363,17 +364,28 @@ class StatusTrustMonitor(APIView):
         return Response(response.data, status=response.status_code)
 
 
-class GetVerify(APIView):
+class VerifyCallback(APIView):
     """
     Core of control verify module.
     """
+
+    @staticmethod
+    def resolveOATVerifierUrl(report_url):
+        from trust_monitor_driver.driverOATSettings import *
+
+        parsed_url = urlparse.urlparse(report_url)
+        resolved_url = report_url.replace(
+            parsed_url.netloc,
+            OAT_LOCATION + ':' + OAT_PORT)
+
+        return resolved_url
 
     def post(self, request, format=None):
         """
         Post method that includes the verification logic, to see if the host is
         trusted or untrusted.
         Example:
-        Call basic-url/get_verify post method.
+        Call basic-url/verify_callback post method.
 
         Args:
             Json object: {"distribution": "CentOS7", "report_url": "url",
@@ -382,13 +394,16 @@ class GetVerify(APIView):
             - Error if the verification process fails
             - Result of the verification process trusted or untrusted
         """
-        logger.info('API get_verify called by OAT.')
+        logger.info('API verify_callback called by OAT.')
         serializer = VerificationValues(data=request.data)
         if serializer.is_valid():
             distro = serializer.data["distribution"]
             analysis = serializer.data["analysis"]
             report_url = serializer.data["report_url"]
             report_id = serializer.data["report_id"]
+
+            report_url = VerifyCallback.resolveOATVerifierUrl(report_url)
+
             logger.debug('Serializaton of information passed of post '
                          'method are valide, the information are: \n'
                          'Distro: %s, Analysis: %s, Report_url: %s, '
@@ -443,7 +458,7 @@ class GetVerify(APIView):
         return Response(1, status.HTTP_200_OK)
 
 
-class AttestAllNFVI(APIView):
+class AttestNFVI(APIView):
     """
     Used to attest all nodes registered with Trust Monitor.
     """
@@ -492,7 +507,7 @@ class AttestAllNFVI(APIView):
             return Response(result, status=status.HTTP_200_OK)
 
 
-class AttestNFVI(APIView):
+class AttestNFVIPoP(APIView):
     """
     Used to attest one node registered with Trust Monitor.
     """
@@ -647,8 +662,7 @@ class Known_Digest(APIView):
         logger.info(request.data)
         serializer = DigestRemoved(data=request.data)
         if serializer.is_valid():
-            logger.debug('Serialization of digest is valide, '
-                         'have all information')
+            logger.debug('Serialization of digest is valid')
             logger.info('See if the digest already exists in db')
             try:
                 digest_found = KnownDigest.objects.get(

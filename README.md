@@ -110,9 +110,6 @@ CASSANDRA_PORT = '9160'
 where Apache Cassandra IP address refers to the instance running the whitelist
 database and the default port is `9160`.
 
-Then, you also need to configure the `OAT_LOCATION` if you are using the OAT
-attestation framework (more in following sections).
-
 Finally, before running the Docker Compose build script you need to export
 the following environment variables in the same shell:
 
@@ -291,7 +288,8 @@ Verifier need to be configured properly.
 The `OAThelper` folder contains others files used for different operations.
 
 The `start_verify.py` file, contained within this folder is used by the
-attestation driver to contact the TM in order to begin the attestation process. You need to give `start_verify.py` the execution permissions.
+attestation driver to contact the TM in order to begin the attestation process.
+You need to give `start_verify.py` the execution permissions.
 
 The `setting.py` file is used to set the base URL of the TM (for callback).
 
@@ -321,21 +319,16 @@ tm_django_app:
     - RUN_DJANGO_APP=1
   depends_on:
     - tm_static_serve
-  extra_hosts:
-    - "$OAT_VERIFIER_CN":$OAT_VERIFIER_IP"
 ```
 
-where `OAT_VERIFIER_CN` is the name included in the OAT Verifier certificate
-and `OAT_VERIFIER_IP` is its IP address.
 
-Moreover, you need to update the `OAT_LOCATION` variable in the `trustMonitor/trust_monitor_django/settings.py` file by adding the IP address
-of the OAT Verifier.
-
-Finally, you need to configure the remote path relative to `start_verify.py` used by OAT in the file
-`trust_monitor_driver/driverOATSettings.py`
+Moreover, you need to update the `OAT_LOCATION` variable in the
+`trustMonitor/trust_monitor_driver/driverOATSettings.py` file by adding the IP address
+of the OAT Verifier and the remote path of the OAT Verifier callback as follows:
 
 ```python
-PATH_DRIVER = '/$OAT_TM_DIR/start_verify.py'
+PATH_CALLBACK = '/$OAT_TM_DIR/start_verify.py'
+OAT_LOCATION = "192.168.1.10"
 ```
 
 ## Connect the TM to an Open CIT attestation framework

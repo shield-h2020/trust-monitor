@@ -8,7 +8,7 @@ from requests.exceptions import ConnectionError
 import vnsfo_settings
 import requests
 
-vnsfo_baseurl = settings.VNSFO_BASE_URL
+vnsfo_baseurl = vnsfo_settings.VNSFO_BASE_URL
 app = flask.Flask('vnsfo_connector')
 
 

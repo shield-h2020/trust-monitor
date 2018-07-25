@@ -1,13 +1,13 @@
 from sys import argv
 import logging
-from structs import *
+from trust_monitor.verifier.structs import *
 from suds.client import Client
-from parser import IRParser, IMAMeasureHandler
-from parser import ContainerCheckAnalysis
+from trust_monitor.verifier.parser import IRParser, IMAMeasureHandler
+from trust_monitor.verifier.parser import ContainerCheckAnalysis
 import gc
 import argparse
 from informationDigest import InformationDigest
-from ra_verifier import RaVerifier
+from trust_monitor.verifier.ra_verifier import RaVerifier
 from parsingOAT import *
 import sys
 

@@ -1,8 +1,8 @@
-from structs import *
-from statistics import *
+from trust_monitor.verifier.structs import *
+from trust_monitor.verifier.statistics import *
 from suds.client import Client
-from parser import IRParser, IMAMeasureHandler
-from parser import ContainerCheckAnalysis
+from trust_monitor.verifier.parser import IRParser, IMAMeasureHandler
+from trust_monitor.verifier.parser import ContainerCheckAnalysis
 import logging
 import gc
 import xmltodict

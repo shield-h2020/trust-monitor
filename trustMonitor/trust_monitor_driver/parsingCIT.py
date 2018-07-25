@@ -1,7 +1,7 @@
 import xmltodict
 import untangle
 import logging
-from structs import IMARecord
+from trust_monitor.verifier.structs import IMARecord
 
 
 logger = logging.getLogger('django')

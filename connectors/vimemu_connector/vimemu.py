@@ -21,9 +21,9 @@ def getStatus():
 
 
 # Start with VIM with thier ip and get the list of vim with docker
-@app.route("/vimemu_connector/list_instances", methods=["POST"])
+@app.route("/vimemu_connector/list_vimemu_instances", methods=["POST"])
 def listVIMEmuInstances():
-    app.logger.debug('In vimemu_connector/list_instances')
+    app.logger.debug('In vimemu_connector/list_vimemu_instances')
     if request.is_json:
         app.logger.info('Received a json object')
         list_vim_ip = request.get_json()

@@ -1,30 +1,24 @@
 import json
 import requests
-from rest_framework import status
-from rest_framework.response import Response
 from requests.exceptions import ConnectionError
 from django.core.exceptions import ObjectDoesNotExist
 import logging
 from django.conf import settings
-from trust_monitor_driver.defineJsonCIT import DefineJsonCIT
 from requests.auth import HTTPBasicAuth
-from trust_monitor.verifier.parsingCIT import ParsingCIT, XML_CIT_ReportParser
 from trust_monitor_driver.informationDigest import InformationDigest, MapDigest
 from trust_monitor.verifier.ra_verifier import RaVerifier
-import time
 from driverCITSettings import *
 from trust_monitor.verifier.instantiateDB import InstantiateDigest
+import xmltodict
+import untangle
+from trust_monitor.verifier.structs import IMARecord
+from trust_monitor.attestation_data import HostAttestation, HostAttestationExtraInfo
 
 requests.packages.urllib3.disable_warnings()
 
 logger = logging.getLogger('django')
-distCassandra = settings.CASSANDRA_LOCATION
-port = settings.CASSANDRA_PORT
-defineJsonCIT = DefineJsonCIT()
-
-
-def getTime():
-    return int(round(time.time()*1000))
+db_ip = settings.CASSANDRA_LOCATION
+db_port = settings.CASSANDRA_PORT
 
 
 class DriverCIT():
@@ -35,121 +29,134 @@ class DriverCIT():
     # Register OpenCIT node
     def registerNode(self, host):
         logger.info('In registerNode method of driverCIT')
+        # TODO: implement method
         pass
 
     # Attest OpenCIT node
-    def pollHost(self, host_list, info_att_cit):
+    def pollHost(self, node):
         logger.info('In pollHost method in driverOpenCIT')
-        list_attest = []
-        for host in host_list:
-            url = ('https://'+ CIT_LOCATION +
-                   ':8443/mtwilson/v2/host-attestations')
-            logger.info('Analyze node: ' + host.hostName)
+        url = (
+            'https://' + CIT_LOCATION + ':8443/mtwilson/v2/host-attestations')
+        logger.info('Analyse node: ' + host.hostName)
+        try:
+            # First, query the AS to attest the host
+            jsonAttest = {'host_uuid': host.uuid_host}
+            logger.debug('Define json object to be sent to OpenCIT '
+                         'to perform attestation')
+            respo = requests.post(
+                url,
+                auth=HTTPBasicAuth(
+                    CIT_API_LOGIN,
+                    CIT_API_PASSWORD),
+                data=json.dumps(jsonAttest),
+                headers=self.headers_json, verify=False)
+            logger.info('Get report from %s' % host.hostName)
+
+            # Then, retrieve the AS report
+            url = (
+                "https://" + CIT_LOCATION +
+                ":8443/mtwilson/v2/host-attestations?nameEqualTo=" +
+                host.hostName)
+            report = requests.get(
+                url,
+                headers=self.headers_xml,
+                auth=HTTPBasicAuth(
+                    CIT_API_LOGIN,
+                    CIT_API_PASSWORD),
+                verify=False)
+
+            # Then, parse the report and extract data (time, trust)
+            data = xmltodict.parse(report.content)
+            saml = []
             try:
-
-                jsonAttest = {'host_uuid': host.uuid_host}
-                logger.debug('Define json object to be sent to OpenCIT '
-                             'to perform attestation')
-                start = getTime()
-                respo = requests.post(url,
-                                      auth=HTTPBasicAuth(
-                                        CIT_API_LOGIN,
-                                        CIT_API_PASSWORD),
-                                      data=json.dumps(jsonAttest),
-                                      headers=self.headers_json, verify=False)
-                if respo.status_code == 200:
-                    end = getTime()
-                    logger.info('Performance: Attestation: %s ms' %
-                                (end-start))
-                    start = getTime()
-                    logger.info('Get report from %s' % host.hostName)
-                    url = ("https://"+ CIT_LOCATION +
-                           ":8443/mtwilson/v2/host-attestations?nameEqualTo=" +
-                           host.hostName)
-                    report = requests.get(url,
-                                          headers=self.headers_xml,
-                                          auth=HTTPBasicAuth(
-                                            CIT_API_LOGIN,
-                                            CIT_API_PASSWORD),
-                                          verify=False)
-                    if report.status_code == 200:
-                        parsingCIT = ParsingCIT()
-                        parsingCIT.get_saml(report.content, info_att_cit)
-                        rep_parser = XML_CIT_ReportParser(report.content)
-                        rep_parser.createReport()
-                        InformationDigest.host = host.hostName
-                        end = getTime()
-                        logger.info('Performance: Report and Parsing: %s ms' %
-                                    (end-start))
-                        start = getTime()
-                        # Call the verify method from the ra_verifier.py
-                        ra_verifier = RaVerifier()
-                        info_digest = InformationDigest()
-
-                        known_digests=" ".join(item for item in InstantiateDigest.known_digests)
-
-                        result = ra_verifier.verifier(host.distribution,
-                                                      host.analysisType,
-                                                      info_digest,
-                                                      checked_containers=False,
-                                                      report_id=0,
-                                                      known_digests=known_digests,
-                                                      port=port,
-                                                      ip=distCassandra)
-                        end = getTime()
-                        logger.info('Performance: Ra_verifier: %s ms' %
-                                    (end-start))
-                        if result and info_att_cit.getTrust():
-                            trust_level = 'trusted'
-                        else:
-                            trust_level = 'untrusted'
-                        info_att_cit.changeLvlTrust(trust_level)
-
-                        MapDigest.mapDigest[host.hostName]=info_digest
-                        del info_digest
-
-                        response = self.createSingleJson(host=host,
-                                                         trust_lvl=trust_level)
-                        try:
-                            del MapDigest.mapDigest[host.hostName]
-                        except KeyError as ke:
-                            logger.warning('Node %s no in map' % host.hostName)
-                        InformationDigest.host = ''
-                    else:
-                        jsonError = {'Error':
-                                     'Impossible to contact with node:'
-                                     + host.hostName}
-                        logger.error(jsonError)
-                        return Response(jsonError, status=respo.status_code)
-                else:
-                    jsonError = {'Error':
-                                 'Impossible to contact with node:'
-                                 + host.hostName}
-                    logger.error(jsonError)
-                    return Response(jsonError, status=respo.status_code)
-                list_attest.append(response)
-            except ConnectionError as connErr:
-                error = {'Error impossible to contact': url}
-                logger.error('Error: ' + str(error))
-                return Response(error,
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                saml = (data['host_attestation_collection']
+                        ['host_attestations']['host_attestation'][0]['saml'])
             except Exception as ex:
-                error = {'Error': ex.message}
-                logger.error(error)
-                return Response(error,
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return list_attest
+                saml = (data['host_attestation_collection']
+                        ['host_attestations']['host_attestation']['saml'])
+            samlobj = untangle.parse(saml)
 
-    def createSingleJson(self, host, trust_lvl):
-        createJson = defineJsonCIT.createJson(host=host,
-                                              mapDigest=MapDigest.mapDigest,
-                                              trust_lvl=trust_lvl)
-        return createJson
+            time = samlobj.saml2_Assertion['IssueInstant']
+            trust = samlobj.saml2_Assertion.saml2_AttributeStatement.saml2_Attribute[2].saml2_AttributeValue.cdata
+
+            # Create IMARecord for IMA verification
+            rep_parser = XML_CIT_ReportParser(report.content)
+            rep_parser.createReport()
+            InformationDigest.host = host.hostName
+
+            # Call the verify method from the ra_verifier.py script
+            ra_verifier = RaVerifier()
+            info_digest = InformationDigest()
+
+            known_digests = " ".join(
+                item for item in InstantiateDigest.known_digests)
+
+            result = ra_verifier.verifier(
+                host.distribution,
+                host.analysisType,
+                info_digest,
+                checked_containers=False,
+                report_id=0,
+                known_digests=known_digests,
+                port=db_port,
+                ip=db_ip)
+
+            # If IMA verification fails, attestation is false
+            if not result:
+                trust = False
+
+            # Parse the IMA verification output (in info_digest)
+            MapDigest.mapDigest[host.hostName] = info_digest
+
+            listNotFound = (
+                [] if len(info_digest.list_not_found) == 0
+                else info_digest.list_not_found)
+            listFakeLib = (
+                [] if len(info_digest.list_fake_lib) == 0
+                else info_digest.list_fake_lib)
+
+            extra_info = HostAttestationExtraInfo(
+                info_digest.n_digests_ok,
+                info_digest.n_digests_not_found,
+                info_digest.n_digests_fake_lib,
+                listNotFound,
+                listFakeLib,
+                info_digest.n_packages_ok,
+                info_digest.n_packages_security,
+                info_digest.n_packages_unknown,
+                info_digest.n_packages_not_security
+            )
+
+            del info_digest
+
+            # Create (and return) the final HostAttestation object
+            host_attestation = HostAttestation(
+                host.hostName,
+                trust,
+                0,
+                extra_info,
+                "Not supported",
+                "OpenCIT"
+            )
+            try:
+                del MapDigest.mapDigest[host.hostName]
+            except KeyError as ke:
+                logger.warning('Node %s no in map' % host.hostName)
+
+            InformationDigest.host = ''
+
+            return host_attestation
+
+        except Exception as e:
+            logger.error(
+                'Exception occurred while attesting CIT host: ' +
+                str(e))
+            return None
 
     # See if Attestation Server (OpenCIT) is alive
-    def getStatus(self, message):
+    def getStatus(self):
         logger.info('Get Status of Driver OpenCIT')
-
+        message = []
         if not CIT_LOCATION:
             logger.info('The CIT driver is not configured')
             message.append({'Driver CIT configured': False})
@@ -172,31 +179,44 @@ class DriverCIT():
         return message
 
 
-class InformationAttestation():
-    def __init__(self):
-        self.trust_lvl = 'trusted'
-        self.vtime = ''
-        self.trust_lvl_global = 'trusted'
+class XML_CIT_ReportParser(object):
 
-    def changeTime(self, time):
-        self.vtime = time
+    def createReport(self):
+        try:
+            ima_xml = []
+            data = xmltodict.parse(self.report)
+            try:
+                ima_xml = (data['host_attestation_collection']
+                           ['host_attestations']['host_attestation'][0]
+                           ['trustReport']['hostReport']['pcrManifest']
+                           ['imaMeasurementXml'])
+            except Exception:
+                ima_xml = (data['host_attestation_collection']
+                           ['host_attestations']
+                           ['host_attestation']['trustReport']['hostReport']
+                           ['pcrManifest']['imaMeasurementXml'])
 
-    def changeLvlTrust(self, trust):
-        if trust == 'false':
-            self.trust_lvl = 'untrusted'
-        else:
-            self.trust_lvl = 'trusted'
-        if self.trust_lvl_global == 'trusted':
-            if trust == 'false' or trust == 'untrusted':
-                self.trust_lvl_global = 'untrusted'
-            else:
-                self.trust_lvl_global = 'trusted'
+            ima_obj = untangle.parse(ima_xml)
+        except Exception as ex:
+            raise Exception(ex.message)
+        for measure in ima_obj.IMA_Measurements.File:
+            pcr = "10"
+            template_digest = "null"
+            template_name = "ima-ng"
+            template_desc = "ima-ng"
+            event_digest = measure.cdata
+            event_name = measure['Path']
+            id_docker = "host"
+            template_data = ("sha1:" + event_digest + " " + event_name +
+                             " " + id_docker)
+            # sha1:event_digest event_name id_docker
+            file_line = (pcr + " " + template_digest + " " +
+                         template_name + " " + template_data)
 
-    def getTime(self):
-        return self.vtime
+            IMARecord(file_line)
+        # for child in root:
+        #    print child.tag, child.attrib
 
-    def getTrust(self):
-        return self.trust_lvl
-
-    def getTrustGlobal(self):
-        return self.trust_lvl_global
+    def __init__(self, report_xml):
+        self.report = report_xml
+        logger.info('Get report')

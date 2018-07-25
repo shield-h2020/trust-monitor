@@ -1,8 +1,4 @@
-from trust_monitor.serializer import HostSerializer, ResultSerializer
-from trust_monitor.serializer import NodeListSerializer, VerificationValues
-from trust_monitor.serializer import VerificationInputNFVI, DigestSerializer
-from trust_monitor.serializer import DigestRemoved
-from trust_monitor.serializer import VerificationDeleteRegisteredNode
+from trust_monitor.serializer import *
 from trust_monitor.models import Host, KnownDigest
 from django.http import Http404
 from rest_framework.views import APIView
@@ -12,25 +8,12 @@ from django.conf import settings
 import json
 import requests
 import logging
-from trust_monitor.verifier.ra_verifier import RaVerifier
 from trust_monitor.verifier.instantiateDB import *
 from django.core.exceptions import ObjectDoesNotExist
-from trust_monitor.engine import dare_connector, attest_single_node
-from trust_monitor.engine import vnsfo_connector, attest_node
-from trust_monitor.engine import dashboard_connector, get_status_connectors
-from trust_monitor_driver.driverOAT import DriverOAT
-from trust_monitor_driver.informationDigest import InformationDigest, MapDigest
-from trust_monitor_driver.driverOpenCIT import DriverCIT
-from trust_monitor_driver.driverOpenCIT import InformationAttestation
-from trust_monitor_driver.defineJsonCIT import JsonListHostCIT
-from trust_monitor_driver.driverHPE import DriverHPE
-from trust_monitor.verifier.parsingOAT import *
-import gc
+from trust_monitor.engine import attest_nodes
+from trust_monitor.engine import get_connectors_status
 import urlparse
 
-driver_oat = DriverOAT()
-driver_cit = DriverCIT()
-driver_hpe = DriverHPE()
 
 logger = logging.getLogger('django')
 
@@ -90,8 +73,7 @@ class RegisterNode(APIView):
                     'node')
         serializer = HostSerializer(data=request.data)
         if serializer.is_valid():
-            logger.debug('Serialization of host is valide, the new node '
-                         'have all information')
+            logger.debug('Serialization of host is valid')
             newHost = Host(hostName=request.data["hostName"],
                            address=request.data["address"],
                            driver=request.data['driver'],
@@ -236,226 +218,30 @@ class AttestNode(APIView):
         """
         logger.info('Call post method of attest_node to attest '
                     'one or mode node')
-        list_cit = []
-        list_oat = []
-        # HPE nodes list (to be filled with POST parameters)
-        list_hpe = []
-        list_global_attest = []
-        info_att_cit = InformationAttestation()
-        status_code = status.HTTP_200_OK
-        if hasattr(request, 'data'):
-            value_data = request.data
-        else:
-            value_data = request
-        serializer = NodeListSerializer(data=value_data)
-        if serializer.is_valid():
-            node_list = serializer.data["node_list"]
-            logger.debug('Serializaton of information passed of post '
-                         'method are valide, the information are: '
-                         + str(node_list))
-            for node in node_list:
-                logger.debug('Search node: %s in the database of Django'
-                             % node['node'])
-                try:
-                    host = Host.objects.get(hostName=node['node'])
-                    if host.driver == 'OpenCIT':
-                        logger.info('Node %s added to OpenCIT list'
-                                    % host.hostName)
-                        list_cit.append(host)
-                    elif host.driver == 'OAT':
-                        logger.info('Node %s added to OAT list'
-                                    % host.hostName)
-                        list_oat.append(node)
-                    # Append HPE nodes to list_hpe object
-                    elif host.driver == "HPESwitch":
-                        logger.info('Node %s added to HPESwitch list'
-                                    % host.hostName)
-                        list_hpe.append(node)
-                except ObjectDoesNotExist as objDoesNotExist:
-                    errorHost = {'Error host not found': node['node']}
-                    logger.error('Error: ' + str(errorHost))
-                    return Response(errorHost,
-                                    status=status.HTTP_404_NOT_FOUND)
-            if list_cit:
-                logger.info('Attest node based on OpenCIT driver')
-                jsonData = driver_cit.pollHost(list_cit, info_att_cit)
-                if (type(jsonData) != list):
-                    return Response(jsonData.data,
-                                    status=jsonData.status_code)
 
-                jsonListCIT = JsonListHostCIT()
-                vtime = info_att_cit.getTime()
-                lvl_trust = info_att_cit.getTrustGlobal()
-                logger.info(jsonData)
-                res = jsonListCIT.defineListHosts(listHost=jsonData,
-                                                  vtime=vtime,
-                                                  trust_lvl=lvl_trust)
-                list_global_attest.append(res)
-            if list_oat:
-                logger.info('Attestation with OAT')
-                response = attest_node(list_oat)
-                if (type(response) != dict):
-                    logger.error('Get object type response')
-                    logger.error('Response status_code = '
-                                 + str(response.status_code))
-                    logger.error('Information: ' + str(response.data))
-                    dare_connector(response.data)
-                    status_code = response.status_code
-                else:
-                    dare_connector(response)
-                    dashboard_connector(response)
-                    logger.debug('Response status_code = 200')
-                    logger.debug('Result: ' + str(response))
-                    status_code = status.HTTP_200_OK
-                list_global_attest.append(response)
-            # Run local method attest_node for each HPE node
-            # Save results to global list and call connectors
-            if list_hpe:
-                logger.info('Attestation with HPESwitchVerifier started')
-                response = driver_hpe.pollHost(list_hpe)
-                # Response is not a list (of attestation data), hence it is
-                # an error response
-                if (type(response) != dict):
-                    logger.error("Attestation for HPESwitch driver failed: "
-                                 + str(response.data))
-                    dare_connector(response.data)
-                    status_code = response.status_code
-                # Else it is a correct response
-                else:
-                    logger.info('Attestation with HPESwitchVerifier'
-                                'completed.')
-                    status_code = status.HTTP_200_OK
-                    dare_connector(response)
-                    dashboard_connector(response)
-                list_global_attest.append(response)
-
-            return Response(list_global_attest, status=status_code)
-        else:
-            logger.error('Serialization generated an error ' +
-                         str(serializer.errors))
-            return Response(serializer.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
-
-
-class Status(APIView):
-    """
-    Return status of trust Monitor used to verify if all component work.
-    """
-
-    def get(self, request, format=None):
-        """
-        This method checks if all the components used by Trust Monitor work.
-        Example:
-        Call basic-url/get_status_info
-
-        Args:
-
-        Return:
-            - Return a json object that indicates if components in
-              Trust Monitor work.
-        """
-        logger.info('Trust Monitor works')
-        logger.info('Call driver to verify if it works')
-        message = driver_oat.getStatus()
-        message = driver_cit.getStatus(message=message)
-        # Added status verification for HPE driver
-        message = driver_hpe.getStatus(message=message)
-        response = get_status_connectors(message)
-        return Response(response.data, status=response.status_code)
-
-
-class VerifyCallback(APIView):
-    """
-    Core of control verify module.
-    """
-
-    @staticmethod
-    def resolveOATVerifierUrl(report_url):
-        from trust_monitor_driver.driverOATSettings import *
-
-        parsed_url = urlparse.urlparse(report_url)
-        resolved_url = report_url.replace(
-            parsed_url.netloc,
-            OAT_LOCATION + ':' + OAT_PORT)
-
-        return resolved_url
-
-    def post(self, request, format=None):
-        """
-        Post method that includes the verification logic, to see if the host is
-        trusted or untrusted.
-        Example:
-        Call basic-url/verify_callback post method.
-
-        Args:
-            Json object: {"distribution": "CentOS7", "report_url": "url",
-                          "report_id", "30", "analysis": "type_analysis"}
-        Return:
-            - Error if the verification process fails
-            - Result of the verification process trusted or untrusted
-        """
-        logger.info('API verify_callback called by OAT.')
-        serializer = VerificationValues(data=request.data)
-        if serializer.is_valid():
-            distro = serializer.data["distribution"]
-            analysis = serializer.data["analysis"]
-            report_url = serializer.data["report_url"]
-            report_id = serializer.data["report_id"]
-
-            report_url = VerifyCallback.resolveOATVerifierUrl(report_url)
-
-            logger.debug('Serializaton of information passed of post '
-                         'method are valide, the information are: \n'
-                         'Distro: %s, Analysis: %s, Report_url: %s, '
-                         'Report_id: %s', distro, analysis, report_url,
-                         report_id)
-            logger.info('Call parsing method to get Digest')
-            parsingOAT = ParsingOAT()
-            from subprocess import *
-            bash = ("python trust_monitor/verifier/perform_attestation_oat.py"
-                    " --analysis " + str(analysis) + " --report_url "
-                    + str(report_url) + " --distro " + str(distro) +
-                    " --report_id " + str(report_id) + " --listdigest " +
-                    " ".join(item for item in InstantiateDigest.known_digests)
-                    + " --portCassandra " + settings.CASSANDRA_PORT +
-                    " --ipCassandra " + settings.CASSANDRA_LOCATION)
-            process = Popen(bash.split(), stdout=PIPE, stderr=PIPE)
-            out, err = process.communicate()
-            logger.info('end comunicate ')
-            if not err:
-                info_digest = InformationDigest()
-                list_data = out.split('\n')
-                result = int(list_data[0])
-                if result == 2:
-                    return Response(result,
-                                    status=(status.
-                                            HTTP_500_INTERNAL_SERVER_ERROR))
-                info_digest.list_not_found = list_data[1]
-                info_digest.list_fake_lib = list_data[2]
-                info_digest.n_digests_ok = int(list_data[3])
-                info_digest.n_digests_not_found = int(list_data[4])
-                info_digest.n_digests_fake_lib = int(list_data[5])
-                info_digest.list_containers = list_data[6]
-                info_digest.list_prop_not_found = list_data[7]
-                info_digest.n_packages_ok = int(list_data[8])
-                info_digest.n_packages_security = int(list_data[9])
-                info_digest.n_packages_not_security = int(list_data[10])
-                info_digest.n_packages_unknown = int(list_data[11])
-                info_digest.host = list_data[12]
-                MapDigest.mapDigest[info_digest.host] = info_digest
-                del info_digest
-                return Response(result, status=status.HTTP_200_OK)
+        try:
+            if hasattr(request, 'data'):
+                value_data = request.data
             else:
-                logger.error('Impossible to perform attestation')
-                logger.error(err)
-                return Response(2, status=(status.
-                                           HTTP_500_INTERNAL_SERVER_ERROR))
-        else:
-            res = 2
-            logger.error('Serialization generated an error ' +
-                         str(serializer.errors))
-            return Response(res, status=status.HTTP_400_BAD_REQUEST)
-        return Response(1, status.HTTP_200_OK)
+                value_data = request
+            serializer = NodeListSerializer(data=value_data)
+            if serializer.is_valid():
+                node_list = serializer.data["node_list"]
+                logger.debug('Serializaton of information valid: '
+                             + str(node_list))
+
+                attest_status = attest_nodes(node_list)
+
+                return Response(attest_status.json(), status=status.HTTP_200_OK)
+            else:
+                logger.error('Serialization generated an error ' +
+                             str(serializer.errors))
+                return Response(serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error('Error occurred while attesting node: ' + str(e))
+            return Response(
+                str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AttestNFVI(APIView):
@@ -488,30 +274,21 @@ class AttestNFVI(APIView):
         """
         logger.info('Call this method to attest all node register to Trust'
                     ' Monitor')
-        logger.debug('Call driver to manage all nodes running in this time')
-        result = vnsfo_connector()
-        if (type(result) != dict):
-            logger.error('Get object type response')
-            logger.error('Response status_code = '
-                         + str(result.status_code))
-            logger.error('Information: ' + str(result.data))
-            dare_connector(result.data)
-            return Response(result.data,
-                            status=result.status_code)
-        else:
-            dare_connector(result)
-            dashboard_connector(result)
-            logger.debug('Get object type list')
-            logger.info('Response status_code = 200')
-            logger.info('Result: ' + str(result))
-            return Response(result, status=status.HTTP_200_OK)
+        try:
+            attest_result = attest_nodes(None)
+            return Response(
+                attest_status.json(), status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error('Error occurred while attesting whole NFVI: ' + str(e))
+            return Response(
+                str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AttestNFVIPoP(APIView):
     """
     Used to attest one node registered with Trust Monitor.
     """
-    def get(self, reques, format=None):
+    def get(self, request, format=None):
         """
         This method is used to attest one node which is registered with
         Trust Monitor.
@@ -530,35 +307,30 @@ class AttestNFVIPoP(APIView):
         """
         logger.info('Call this method to attest one node reigstered with '
                     'Trust Monitor.')
-        param = reques.GET
-        logger.debug('The parameter passed to get method are: %s', param)
-        serializer = VerificationInputNFVI(data=param)
-        if serializer.is_valid():
-            logger.debug('Serialization of information are valide')
-            node_id = serializer.data['node_id']
-            logger.info('Is required the attestation of node %s', node_id)
-            logger.debug('Call driver to attest that node')
-            result = attest_single_node(node_id)
-            if (type(result) != dict):
-                logger.error('Get object type response')
-                logger.error('Response status_code = '
-                             + str(result.status_code))
-                logger.error('Information: ' + str(result.data))
-                dare_connector(result.data)
-                return Response(result.data,
-                                status=result.status_code)
+        try:
+            param = request.GET
+            logger.debug('The parameter passed to get method are: %s', param)
+            serializer = VerificationInputNFVI(data=param)
+            if serializer.is_valid():
+
+                logger.debug('Serialization of information is valid')
+                node_id = serializer.data['node_id']
+                logger.info('Is required the attestation of node %s', node_id)
+                logger.debug('Call driver to attest that node')
+
+                attest_result = attest_nodes([node_id])
+
+                return Response(
+                    attest_status.json(), status=status.HTTP_200_OK)
             else:
-                dare_connector(result)
-                dashboard_connector(result)
-                logger.debug('Get object type list')
-                logger.info('Response status_code = 200')
-                logger.info('Result: ' + str(result))
-                return Response(result, status=status.HTTP_200_OK)
-        else:
-            logger.error('Serialization generate an error: %s',
-                         str(serializer.errors))
-            return Response(serializer.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
+                logger.error('Serialization generate an error: %s',
+                             str(serializer.errors))
+                return Response(serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error('Error occurred while attesting NFVI node: ' + str(e))
+            return Response(
+                str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class Known_Digest(APIView):
@@ -610,8 +382,7 @@ class Known_Digest(APIView):
                     'digest')
         serializer = DigestSerializer(data=request.data)
         if serializer.is_valid():
-            logger.debug('Serialization of digest is valide, '
-                         'have all information')
+            logger.debug('Serialization of digest is valid')
             logger.info('See if the digest already exists in db')
             try:
                 digest_found = KnownDigest.objects.get(
@@ -685,3 +456,67 @@ class Known_Digest(APIView):
                          str(serializer.errors))
             return Response(serializer.errors,
                             status=status.HTTP_400_BAD_REQUEST)
+
+
+class Status(APIView):
+    """
+    Return status of trust Monitor used to verify if all component work.
+    """
+
+    def get(self, request, format=None):
+        """
+        This method checks if all the components used by Trust Monitor work.
+        Example:
+        Call basic-url/status
+
+        Args:
+
+        Return:
+            - Return a json object that indicates if components in
+              Trust Monitor work.
+        """
+        logger.info('Trust Monitor works')
+        logger.info('Call driver to verify if it works')
+        message = []
+        message.append(DriverOAT().getStatus())
+        message.append(DriverCIT().getStatus())
+        # Added status verification for HPE driver
+        message.append(DriverHPE().getStatus())
+        message.append(get_connectors_status)
+        return Response(message, status=status.HTTP_200_OK)
+
+
+class VerifyCallback(APIView):
+    """
+    Core of control verify module.
+    """
+
+    def post(self, request, format=None):
+        """
+        Post method that includes the verification logic, to see if the host is
+        trusted or untrusted (specific for OAT)
+        Example:
+        Call basic-url/verify_callback post method.
+
+        Args:
+            Json object: {"distribution": "CentOS7", "report_url": "url",
+                          "report_id", "30", "analysis": "type_analysis"}
+        Return:
+            - Error if the verification process fails
+            - Result of the verification process trusted or untrusted
+        """
+        logger.info('API verify_callback called by OAT.')
+        serializer = VerificationValues(data=request.data)
+        if serializer.is_valid():
+            distro = serializer.data["distribution"]
+            analysis = serializer.data["analysis"]
+            report_url = serializer.data["report_url"]
+            report_id = serializer.data["report_id"]
+
+            return DriverOAT().verify_callback(
+                distro, analysis, report_url, report_id)
+        else:
+            logger.error('Serialization generated an error ' +
+                         str(serializer.errors))
+            return Response(2, status=status.HTTP_400_BAD_REQUEST)
+        return Response(1, status.HTTP_200_OK)

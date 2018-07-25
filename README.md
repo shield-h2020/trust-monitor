@@ -346,6 +346,20 @@ CIT_API_LOGIN = 'admin'
 CIT_API_PASSWORD = ''
 ```
 
+In order to register an Open CIT host, you need to retrieve the `uuid_host`
+parameter from the Open CIT Attestation Server. In order to do so, access the
+Attestation Server database by issuing:
+
+```
+# psql mw_as
+```
+
+Then, run the following command to retrieve the `uuid_host` parameter:
+
+```
+mw_as=# select uuid_hex from mw_hosts;
+```
+
 ## Connect the TM to the HPE switch attestation framework
 
 *N.B:* This section refers to the Docker-based deployment.
@@ -378,14 +392,20 @@ first part of the volume definition (the second is the path inside of the contai
 
 ## Test the Trust Monitor API
 
+This section briefly states how to interact with the Trust Monitor APIs.
+
+### Status information
+
 The Trust Monitor Django application allows for a graphical testing of its APIs.
 In order to retrieve status information on the application, just navigate to the
 following URL in a browser:
 ```
-https://<TRUST_MONITOR_BASE_URL_OR_IP>/get_status_info/
+https://<TRUST_MONITOR_BASE_URL_OR_IP>/status/
 ```
 This page should display in human readable form the status of different
 services related to the TM and the attestation frameworks as well.
+
+### Registration of a node
 
 In order to perform registration of a node, just access the following page:
 ```
@@ -401,6 +421,16 @@ In order to register an host, add the following content in the `POST` body:
 {"distribution": "<distro (e.g. CentOS7/HPE)>", "hostName": "<host name>",
 "driver":"OAT/OpenCIT/HPESwitch", "address": "xxx.xxx.xxx.xxx"}
 ```
+In case of Open CIT, you need to provide the `uuid_host` parameter as well.
+
+In order to delete a registered node, you can access the same API with a `DELETE`
+request (e.g. via `curl`):
+
+```
+curl -k -X "DELETE" --header "Content-Type: application/json" --data '{"hostName": "<node-to-unregister>"}' https://<TRUST_MONITOR_BASE_URL_OR_IP>/register_node/
+```
+
+### Attestation of a node
 
 In order to perform attestation of a node, just access the following page:
 ```

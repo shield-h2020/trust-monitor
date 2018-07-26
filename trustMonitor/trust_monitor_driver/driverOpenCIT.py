@@ -11,14 +11,16 @@ from driverCITSettings import *
 from trust_monitor.verifier.instantiateDB import InstantiateDigest
 import xmltodict
 import untangle
+from trust_monitor.models import Host
 from trust_monitor.verifier.structs import IMARecord
-from trust_monitor.attestation_data import HostAttestation, HostAttestationExtraInfo
+from trust_monitor.attestation_data import (
+    HostAttestation, HostAttestationExtraInfo)
+from trust_monitor_driver.driverConstants import *
+
 
 requests.packages.urllib3.disable_warnings()
 
 logger = logging.getLogger('django')
-db_ip = settings.CASSANDRA_LOCATION
-db_port = settings.CASSANDRA_PORT
 
 
 class DriverCIT():
@@ -35,6 +37,7 @@ class DriverCIT():
     # Attest OpenCIT node
     def pollHost(self, node):
         logger.info('In pollHost method in driverOpenCIT')
+        host = Host.objects.get(hostName=node['node'])
         url = (
             'https://' + CIT_LOCATION + ':8443/mtwilson/v2/host-attestations')
         logger.info('Analyse node: ' + host.hostName)
@@ -76,8 +79,14 @@ class DriverCIT():
                         ['host_attestations']['host_attestation']['saml'])
             samlobj = untangle.parse(saml)
 
-            time = samlobj.saml2_Assertion['IssueInstant']
-            trust = samlobj.saml2_Assertion.saml2_AttributeStatement.saml2_Attribute[2].saml2_AttributeValue.cdata
+            # Extract trust information
+            trust = (
+                    samlobj
+                    .saml2_Assertion
+                    .saml2_AttributeStatement
+                    .saml2_Attribute[2]
+                    .saml2_AttributeValue
+                    .cdata)
 
             # Create IMARecord for IMA verification
             rep_parser = XML_CIT_ReportParser(report.content)
@@ -98,8 +107,8 @@ class DriverCIT():
                 checked_containers=False,
                 report_id=0,
                 known_digests=known_digests,
-                port=db_port,
-                ip=db_ip)
+                port=settings.CASSANDRA_PORT,
+                ip=settings.CASSANDRA_LOCATION)
 
             # If IMA verification fails, attestation is false
             if not result:
@@ -136,7 +145,7 @@ class DriverCIT():
                 0,
                 extra_info,
                 "Not supported",
-                "OpenCIT"
+                CIT_DRIVER
             )
             try:
                 del MapDigest.mapDigest[host.hostName]

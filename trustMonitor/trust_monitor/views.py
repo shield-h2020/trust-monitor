@@ -12,6 +12,7 @@ from trust_monitor.verifier.instantiateDB import *
 from django.core.exceptions import ObjectDoesNotExist
 from trust_monitor.engine import attest_nodes
 from trust_monitor.engine import get_connectors_status
+from trust_monitor_driver.driverConstants import *
 import urlparse
 
 
@@ -69,82 +70,69 @@ class RegisterNode(APIView):
             - The host created
             - Message Error
         """
-        logger.info('Call post method of register_node to register new '
-                    'node')
-        serializer = HostSerializer(data=request.data)
-        if serializer.is_valid():
-            logger.debug('Serialization of host is valid')
-            newHost = Host(hostName=request.data["hostName"],
-                           address=request.data["address"],
-                           driver=request.data['driver'],
-                           distribution=request.data['distribution'])
-            try:
-                newHost.pcr0 = request.data["pcr0"]
-            except KeyError as ke:
-                logger.warning('Pcr0 not given')
-            try:
-                newHost.analysisType = request.data["analysisType"]
-            except KeyError as ke:
-                logger.warning('AnalysisType not given')
-            logger.info('The information of the node are:')
-            logger.info('Name: ' + newHost.hostName)
-            logger.info('Address: ' + newHost.address)
-            logger.info('Pcr0: ' + newHost.pcr0)
-            logger.info('Distribution: ' + newHost.distribution)
-            logger.info('Driver attestation: ' + newHost.driver)
-            logger.info('AnalysisType: ' + newHost.analysisType)
-            logger.info('Call driver to manage new host')
-            if newHost.driver == 'OAT':
-                logger.info('Register node OAT')
-                response = driver_oat.registerNode(newHost)
-                logger.debug('Return from the driver:')
-                if (response.status_code == 200):
-                    logger.debug('Response return a status_code = 200, host '
-                                 'is created')
+        try:
+            logger.info('Call post method of register_node to register new '
+                        'node')
+            serializer = HostSerializer(data=request.data)
+            if serializer.is_valid():
+                logger.debug('Serialization of host is valid')
+                newHost = Host(hostName=request.data["hostName"],
+                               address=request.data["address"],
+                               driver=request.data['driver'],
+                               distribution=request.data['distribution'])
+                try:
+                    newHost.pcr0 = request.data["pcr0"]
+                except KeyError as ke:
+                    logger.warning('Pcr0 not given')
+                try:
+                    newHost.analysisType = request.data["analysisType"]
+                except KeyError as ke:
+                    logger.warning('AnalysisType not given')
+                logger.info('The information of the node are:')
+                logger.info('Name: ' + newHost.hostName)
+                logger.info('Address: ' + newHost.address)
+                logger.info('Pcr0: ' + newHost.pcr0)
+                logger.info('Distribution: ' + newHost.distribution)
+                logger.info('Driver attestation: ' + newHost.driver)
+                logger.info('AnalysisType: ' + newHost.analysisType)
+                logger.info('Call driver to manage new host')
+                if newHost.driver == OAT_DRIVER:
+                    logger.info('Register node OAT')
+                    driver_oat.registerNode(newHost)
                     serializer.save()
-                    logger.info('Save node in the database of Django')
+                    logger.info('OAT node registered in DB')
                     return Response(serializer.data,
                                     status=status.HTTP_201_CREATED)
-                elif (response.status_code == 400):
-                    logger.error('Response return a status_code = 400, this '
-                                 'means that we received an error in the '
-                                 'attestation framework')
-                    logger.error(json.loads(response.text))
-                    return Response(json.loads(response.text),
-                                    status=status.HTTP_400_BAD_REQUEST)
+                elif newHost.driver == CIT_DRIVER:
+                    logger.info('Register node OpenCIT')
+                    driver_cit.registerNode(newHost)
+                    serializer.save()
+                    logger.info('CIT node registered in DB')
+                    return Response(serializer.data,
+                                    status=status.HTTP_201_CREATED)
+                # The host is being registered in the TM application
+                # Distribution is required for other drivers,
+                # use generic value here.
+                elif newHost.driver == HPE_DRIVER:
+                    logger.info('Register node HPESwitch')
+                    driver_hpe.registerNode(newHost)
+                    serializer.save()
+                    logger.info('HPESwitch node registered in DB')
+                    return Response(serializer.data,
+                                    status=status.HTTP_201_CREATED)
                 else:
-                    logger.error('Response has status_code = '
-                                 + str(response.status_code)
-                                 + ' with message: ' + str(response.data))
-                    return Response(response.data,
-                                    status=response.status_code)
-            elif newHost.driver == 'OpenCIT':
-                logger.info('Register node OpenCIT')
-                driver_cit.registerNode(newHost)
-                serializer.save()
-                logger.info('Save node in the Django db')
-                return Response(serializer.data,
-                                status=status.HTTP_201_CREATED)
-            # The host is being registered in the TM application
-            # Distribution is required for other drivers,
-            # use generic value here.
-            elif newHost.driver == 'HPESwitch':
-                logger.info('Register node HPESwitch')
-                driver_hpe.registerNode(newHost)
-                serializer.save()
-                logger.info('Saved HPESwitch node in the Django db')
-                return Response(serializer.data,
-                                status=status.HTTP_201_CREATED)
+                    error = {'error': 'Attestation driver not found impossible '
+                                      'add this node'}
+                    logger.error(error)
+                    return Response(error, status=status.HTTP_403_FORBIDDEN)
             else:
-                error = {'error': 'Attestation driver not found impossible '
-                                  'add this node'}
-                logger.error(error)
-                return Response(error, status=status.HTTP_403_FORBIDDEN)
-        else:
-            logger.error('Serializaton generated an error ' +
-                         str(serializer.errors))
-            return Response(serializer.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
+                logger.error('Serializaton generated an error ' +
+                             str(serializer.errors))
+                return Response(serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST)
+        except Exception as ex:
+            logger.error('Error occurred while registrering node: ' + str(ex))
+            return Response(str(ex), status=HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, format=None):
         """

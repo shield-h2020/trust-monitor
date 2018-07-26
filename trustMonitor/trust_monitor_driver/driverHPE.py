@@ -6,6 +6,8 @@ import json
 from trust_monitor.models import Host
 from rest_framework import status
 from trust_monitor.attestation_data import SDNAttestation
+from trust_monitor_driver.driverConstants import *
+
 
 logger = logging.getLogger('django')
 
@@ -83,7 +85,7 @@ class DriverHPE():
 
         try:
             # Retrieve address of switch
-            host = Host.objects.get(hostName=node_obj['node'])
+            host = Host.objects.get(hostName=node['node'])
             logger.debug("Node IP address is " + host.address)
             result = runSwitchVerifier(host.address)
             # Load result as json
@@ -93,7 +95,7 @@ class DriverHPE():
                 host.hostName,
                 extractTrustLevelFromResult(jsonResult),
                 jsonResult,
-                "HPESwitch"
+                HPE_DRIVER
             )
             return attestation_result
 

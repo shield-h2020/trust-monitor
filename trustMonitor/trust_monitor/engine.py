@@ -13,6 +13,8 @@ from trust_monitor.verifier.instantiateDB import *
 from trust_monitor_driver.driverOAT import DriverOAT
 from trust_monitor_driver.driverOpenCIT import DriverCIT
 from trust_monitor_driver.driverHPE import DriverHPE
+from trust_monitor_driver.driverConstants import *
+
 
 headers = {'content-type': 'application/json'}
 distCassandra = settings.CASSANDRA_LOCATION
@@ -171,12 +173,10 @@ def attest_nodes(node_list):
     global_status = AttestationStatus()
     for node in node_list:
         host = Host.objects.get(hostName=node['node'])
-        if host.driver == 'OpenCIT':
-            attest_result = attest_compute(node)
-        elif host.driver == 'OAT':
+        if host.driver == CIT_DRIVER or host.driver == OAT_DRIVER:
             attest_result = attest_compute(node)
         # Append HPE nodes to list_hpe object
-        elif host.driver == "HPESwitch":
+        elif host.driver == HPE_DRIVER:
             attest_result = attest_sdn_component(node)
         else:
             logger.warning('Node %s has unknown driver' % host.hostName)
@@ -234,9 +234,9 @@ def attest_compute(node):
             attestation only.")
         jsonAttest = {'node': host.hostName}
 
-    if host.driver == 'OpenCIT':
+    if host.driver == CIT_DRIVER:
         return DriverCIT().pollHost(jsonAttest)
-    elif host.driver == 'OAT':
+    elif host.driver == OAT_DRIVER:
         return DriverOAT().pollHost(jsonAttest)
 
 

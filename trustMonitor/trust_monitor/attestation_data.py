@@ -80,7 +80,7 @@ class HostAttestation():
             trust=True,
             analysis_status=0,
             analysis_extra_info=None,
-            analysis_containers=None
+            analysis_containers=None,
             driver=''):
         self.node = node
         self.trust = trust

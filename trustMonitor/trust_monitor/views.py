@@ -11,7 +11,9 @@ import logging
 from trust_monitor.verifier.instantiateDB import *
 from django.core.exceptions import ObjectDoesNotExist
 from trust_monitor.engine import attest_nodes
-from trust_monitor.engine import get_connectors_status
+from trust_monitor.engine import (
+    get_connectors_status, get_drivers_status, get_databases_status
+)
 from trust_monitor_driver.driverConstants import *
 import urlparse
 
@@ -466,11 +468,9 @@ class Status(APIView):
         logger.info('Trust Monitor works')
         logger.info('Call driver to verify if it works')
         message = []
-        message.append(DriverOAT().getStatus())
-        message.append(DriverCIT().getStatus())
-        # Added status verification for HPE driver
-        message.append(DriverHPE().getStatus())
-        message.append(get_connectors_status)
+        message.append({'drivers': get_drivers_status()})
+        message.append({'connectors': get_connectors_status()})
+        message.append({'databases': get_databases_status()})
         return Response(message, status=status.HTTP_200_OK)
 
 

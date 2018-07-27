@@ -8,7 +8,6 @@ from requests.auth import HTTPBasicAuth
 from trust_monitor_driver.informationDigest import InformationDigest, MapDigest
 from trust_monitor.verifier.ra_verifier import RaVerifier
 from driverCITSettings import *
-from trust_monitor.verifier.instantiateDB import InstantiateDigest
 import xmltodict
 import untangle
 from trust_monitor.models import Host
@@ -165,27 +164,24 @@ class DriverCIT():
     # See if Attestation Server (OpenCIT) is alive
     def getStatus(self):
         logger.info('Get Status of Driver OpenCIT')
-        message = []
+        configured = False
+        active = False
         if not CIT_LOCATION:
             logger.info('The CIT driver is not configured')
-            message.append({'Driver CIT configured': False})
-            return message
+            configured = False
         else:
-            message.append({'Driver CIT configured': True})
+            configured = True
 
         try:
             url = 'https://'+CIT_LOCATION+':8443/mtwilson-portal'
             logger.debug('Try to contact OpenCIT on %s' % url)
             resp = requests.get(url, verify=False, timeout=5)
             logger.debug('Status = ' + str(resp.status_code))
-            message_cit = {'Driver OpenCIT works': True}
-            logger.info(message_cit)
-            message.append(message_cit)
+            active = True
         except Exception as e:
-            error_oat = {'Driver OpenCIT works': False}
-            logger.error('Error impossible to contact OpenCIT %s' % e)
-            message.append(error_oat)
-        return message
+            logger.error('Error impossible to contact OpenCIT %s' % str(e))
+            active = False
+        return {CIT_DRIVER: {'configuration': configured, 'active': active}}
 
 
 class XML_CIT_ReportParser(object):

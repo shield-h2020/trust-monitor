@@ -17,8 +17,6 @@ from trust_monitor_driver.driverConstants import *
 
 
 headers = {'content-type': 'application/json'}
-distCassandra = settings.CASSANDRA_LOCATION
-port = settings.CASSANDRA_PORT
 
 logger = logging.getLogger('django')
 
@@ -105,56 +103,89 @@ def get_vnsfs_from_vim(vim):
         return False
 
 
-def get_connectors_status():
-    logger.info('Get status of connectors')
+def get_drivers_status():
+    logger.info('Get status of drivers')
     message = []
-    logger.debug('Verify if Cassandra works at: ' + distCassandra + ':' +
-                 port)
-    try:
-        pool = pycassa.ConnectionPool('system', [distCassandra + ':' +
-                                                 port])
-        pool.dispose()
-        message_cass = {'Cassandra works': True}
-        logger.info('%s' % str(message_cass))
-        message.append(message_cass)
-    except pycassa.pool.AllServersUnavailable as e:
-        logger.error('Cassandra do not work')
-        error_cass = {'Cassandra works': False}
-        message.append(error_cass)
-    urlDare = settings.BASIC_URL_DARE + '/dare_connector'
-    nameConnector = 'DARE'
-    get_connector_status(message, urlDare, nameConnector)
-    urlDashboard = settings.BASIC_URL_DASHBOARD + '/dashboard_connector'
-    nameConnector = 'Dashboard'
-    get_connector_status(message, urlDashboard, nameConnector)
-    urlVNSFO = settings.BASIC_URL_VNSFO + '/vnsfo_connector'
-    nameConnector = 'VNSFO'
-    get_connector_status(message, urlVNSFO, nameConnector)
-    urlVIMEMU = settings.BASIC_URL_VIMEMU + '/vimemu_connector'
-    nameConnector = 'VIMEMU'
-    get_connector_status(message, urlVIMEMU, nameConnector)
-    urlStore = settings.BASIC_URL_STORE + '/store_connector'
-    nameConnector = 'Store'
-    get_connector_status(message, urlStore, nameConnector)
-    get_redis_status(message)
+    message.append(DriverOAT().getStatus())
+    message.append(DriverCIT().getStatus())
+    message.append(DriverHPE().getStatus())
+    logger.debug(message)
     return message
 
 
-def get_connector_status(message, urlConnector, nameConnector):
+def get_connectors_status():
+    logger.info('Get status of connectors')
+    message = []
+    urlDare = settings.BASIC_URL_DARE + '/dare_connector'
+    nameConnector = 'DARE'
+    message.append(get_connector_status(urlDare, nameConnector))
+    urlDashboard = settings.BASIC_URL_DASHBOARD + '/dashboard_connector'
+    nameConnector = 'Dashboard'
+    message.append(get_connector_status(urlDashboard, nameConnector))
+    urlVNSFO = settings.BASIC_URL_VNSFO + '/vnsfo_connector'
+    nameConnector = 'VNSFO'
+    message.append(get_connector_status(urlVNSFO, nameConnector))
+    urlVIMEMU = settings.BASIC_URL_VIMEMU + '/vimemu_connector'
+    nameConnector = 'VIM-EMU'
+    message.append(get_connector_status(urlVIMEMU, nameConnector))
+    urlStore = settings.BASIC_URL_STORE + '/store_connector'
+    nameConnector = 'vNSF Store'
+    message.append(get_connector_status(urlStore, nameConnector))
+    logger.debug(message)
+    return message
+
+
+def get_databases_status():
+    message = []
+    logger.debug('Verify if the databases are reachable.')
+    configured = False
+    active = False
+    if settings.CASSANDRA_LOCATION and settings.CASSANDRA_PORT:
+        configured = True
+        try:
+            pool = pycassa.ConnectionPool(
+                'system',
+                [settings.CASSANDRA_LOCATION + ':' + settings.CASSANDRA_PORT]
+            )
+            pool.dispose()
+            active = True
+        except Exception as e:
+            logger.error('No connection with the database')
+            active = False
+    message.append(
+        {'whitelist-db': {'configuration': configured, 'active': active}})
+
+    configured = True
+    active = False
+    try:
+        # Redis DB is part of the Docker-Compose environment, so it is hardcoded
+        redisDB = redis.Redis('tm_database_redis', '6379')
+        redisDB.ping()
+        active = True
+    except Exception as e:
+        logger.error('No connection with known-digests in-memory database')
+        active = False
+    finally:
+        del redisDB
+    message.append(
+        {'known-digests': {'configuration': configured, 'active': active}})
+
+    return message
+
+
+def get_connector_status(urlConnector, nameConnector):
     logger.debug('Verify if connector ' + nameConnector + ' works')
     try:
         logger.debug('Try to contact ' + nameConnector +
                      ' connector on %s' % urlConnector)
         resp = requests.get(urlConnector)
         logger.debug('Status = ' + str(resp.status_code))
-        mess = {nameConnector + ' connector works': True}
-        logger.info('%s' % str(mess))
-        message.append(mess)
-    except ConnectionError as e:
-        error = {nameConnector + ' connector works': False}
+        active = True
+    except Exception as e:
+        active = False
         logger.error('Error impossible to contact ' + nameConnector +
                      ' connector')
-        message.append(error)
+    return {nameConnector: {'configuration': True, 'active': active}}
 
 ###############################################################################
 # Attestation methods
@@ -332,19 +363,3 @@ def redis_instantiate():
         logger.warning('Impossible included the digests in Redis DB')
         logger.warning(jsonError)
     return list_digest
-
-
-def get_redis_status(message):
-    logger.debug('Verify if redis works')
-    try:
-        redisDB = redis.Redis('tm_database_redis', '6379')
-        redisDB.ping()
-        mess = {'Redis works': True}
-        logger.info(mess)
-        message.append(mess)
-    except redis.ConnectionError as e:
-        error = {'Redis works': False}
-        logger.error('Error impossible to contact Redis')
-        message.append(error)
-    finally:
-        del redisDB

@@ -9,26 +9,29 @@ attestation of compute platforms and SDN network equipment via TPM.
 
 ```
 trust-monitor
+├── connectors
+│   ├── dare_connector
+│   ├── dashboard_connector
+│   ├── database
+│   ├── manage_osm_connector
+│   ├── store_connector
+│   ├── vimemu_connector
+│   └── vnsfo_connector
 ├── docker-compose.yml
+├── hpe
+├── LICENSE
+├── logs
 ├── OAThelper
 │   ├── setting.py
 │   └── start_verify.py
-├── LICENSE
 ├── README.md
 ├── reverseProxy
 │   ├── conf
 │   ├── Dockerfile
 │   ├── html
 │   └── ssl
-├── connectors
-|   ├── dare_connector
-|   ├── dashboard_connector
-|   |   └── server-rabbitmq
-|   ├── store_connector
-|   └── vNSFO_connector
 └── trustMonitor
     ├── docker
-    |   └── ssl
     ├── Dockerfile
     ├── manage.py
     ├── requirements.txt
@@ -136,17 +139,17 @@ command from a different shall (still from the root directory):
 The output should be similar to the following:
 
 ```
-Name                                Command               State                    Ports                  
-----------------------------------------------------------------------------------------------------------------------------
-ratrustmonitor_reverse_proxy_1             nginx -g daemon off;             Up      0.0.0.0:443->443/tcp, 0.0.0.0:80->80/tcp
-ratrustmonitor_tm_dare_connector_1         python dare.py                   Up      5000/tcp                                
-ratrustmonitor_tm_dashboard_connector_1    python dashboard.py              Up      5000/tcp                                
-ratrustmonitor_tm_database_redis_1         docker-entrypoint.sh redis ...   Up      6379/tcp                                
-ratrustmonitor_tm_django_app_1             docker/entrypoint.sh             Up      8000/tcp                                
-ratrustmonitor_tm_manage_osm_connector_1   python manage_osm.py             Up      5000/tcp                                
-ratrustmonitor_tm_rabbitmq_server_1        docker-entrypoint.sh rabbi ...   Up      25672/tcp, 4369/tcp, 5671/tcp, 5672/tcp
-ratrustmonitor_tm_static_serve_1           docker/entrypoint.sh             Up      8000/tcp                                
-ratrustmonitor_tm_store_connector_1        python store.py                  Up      5000/tcp   
+Name                                 Command               State                    Ports                  
+-----------------------------------------------------------------------------------------------------------------------------
+ra-trust-monitor_reverse_proxy_1            nginx -g daemon off;             Up      0.0.0.0:443->443/tcp, 0.0.0.0:80->80/tcp
+ra-trust-monitor_tm_dare_connector_1        python dare.py                   Up      5000/tcp                                
+ra-trust-monitor_tm_dashboard_connector_1   python dashboard.py              Up      5000/tcp                                
+ra-trust-monitor_tm_database_redis_1        docker-entrypoint.sh redis ...   Up      6379/tcp                                
+ra-trust-monitor_tm_django_app_1            docker/entrypoint.sh             Up      8000/tcp                                
+ra-trust-monitor_tm_static_serve_1          docker/entrypoint.sh             Up      8000/tcp                                
+ra-trust-monitor_tm_store_connector_1       python store.py                  Up      5000/tcp                                
+ra-trust-monitor_tm_vimemu_connector_1      python vimemu.py                 Up      5000/tcp                                
+ra-trust-monitor_tm_vnsfo_connector_1       python vnsfo.py                  Up      5000/tcp     
 ```
 
 ## (Alternative) manual installation
@@ -176,7 +179,6 @@ For example:
 ```python
 LOCAL_SETTINGS = True
 from settings import *
-ALLOWED_HOSTS += ['ip_address_tm']
 CASSANDRA_LOCATION = 'ip_address_cassandra_db'
 CASSANDRA_PORT = '9160'
 ```
@@ -223,7 +225,11 @@ The `testDriver.py` file must have a class containing at least three methods ins
 - `getStatus` used to verify whether the attestation framework is active or not;
 - `pollHost`used to start the RA process with the attestation framework.
 
-It is also necessary to create within the path `trustMonitor/trust_monitor/verifier` a file called for example `parsingTest.py` used to parsify the measurements coming from the attestation framework.
+It is recommended to specify the identifier of the driver in the `trustMonitor/trust_monitor_driver/driverConstants.py` file.
+
+It may also be necessary to create within the path `trustMonitor/trust_monitor/verifier` a file called for example `parsingTest.py` used to parsify the measurements coming from the attestation framework, in case you want to
+leverage the whitelist-based verification for compute nodes.
+
 The various measures must have mandatory information to be treated as objects of the IMARecord class in ordert to be included in the list of digest that are analyzed during the integrity verification procedure.
 For example:
 ```python
@@ -244,27 +250,10 @@ IMARecord(file_line)
 ```
 
 When the IMARecord class is called the list of Digest that is considered during the attestation process is expanded.
-Inside the `views.py` file you have to insert the import from the driver file and you need to instantiate an object from the `testDriver` class, for example in this way:
-```python
-from trust_monitor_driver.testDriver import TestDriver
-
-testDriver = TestDriver()
-```
-To allow you to record and attest a node, you must specify an if in the class that handles these methods, because when you are asked to insert a new node in the Trust Monitor you must also specify the driver to which we refer. So we can divide the procedures according to the chosen driver.
-For example:
-
-```python
-class RegisterNode(APIView):
-
-def post(self, request, format=None):
-  ...
-  if newHost.driver == 'OAT':
-      ....
-  elif newHost.driver == 'TestDriver':
-      # register your node with the attestation framework and the Trust Monitor
-```
-Analogous content for the attestation API ``..../attest_node``.
-
+In the `engine.py` file you have to properly configure the attestation
+callback to query the driver.
+In the `views.py` file you have to properly configure the registration option
+for your new driver.
 
 ## Log messages
 

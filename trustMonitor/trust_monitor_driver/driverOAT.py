@@ -12,6 +12,8 @@ from trust_monitor_driver.informationDigest import MapDigest, InformationDigest
 from trust_monitor.attestation_data import (
     HostAttestation, HostAttestationExtraInfo, ContainerAttestation)
 from trust_monitor_driver.driverConstants import *
+from rest_framework.response import Response
+from rest_framework import status
 
 requests.packages.urllib3.disable_warnings()
 
@@ -35,7 +37,7 @@ class DriverOAT():
         logger.info('Configure AnalysisType')
         analysis = host.analysisType.split(',')[0]
         url = ('https://' + OAT_LOCATION +
-               ':8443/WLMService/resources/analysisTypes')
+               ':' + OAT_PORT + '/WLMService/resources/analysisTypes')
         jsonAnalysis = {
                 'name': analysis,
                 'module': 'RAVerifier', 'version': '2',
@@ -51,7 +53,10 @@ class DriverOAT():
 
     def confOem(self):
         logger.info('Configure Oem')
-        url = 'https://'+OAT_LOCATION+':8443/WLMService/resources/oem'
+        url = (
+            'https://'+OAT_LOCATION+':' + OAT_PORT + '/WLMService/resources/oem'
+            )
+
         jsonOem = {'Name': 'OEM1', 'Description': 'Test id'}
         resp = requests.post(url, data=json.dumps(jsonOem),
                              headers=self.headers,
@@ -63,7 +68,9 @@ class DriverOAT():
 
     def confOs(self, host):
         logger.info('Configure Os')
-        url = 'https://'+OAT_LOCATION+':8443/WLMService/resources/os'
+        url = (
+            'https://'+OAT_LOCATION+':' + OAT_PORT + '/WLMService/resources/os'
+        )
         jsonOs = {'Name': host.distribution, 'Version': 'v1234',
                   'Description': 'Test1'}
         resp = requests.post(url, data=json.dumps(jsonOs),
@@ -75,7 +82,10 @@ class DriverOAT():
 
     def confMle(self, host):
         logger.info('Configure MLE')
-        url = 'https://'+OAT_LOCATION+':8443/WLMService/resources/mles'
+        url = (
+            'https://'+OAT_LOCATION+':'
+            + OAT_PORT + '/WLMService/resources/mles'
+            )
         jsonMle = {'Name': host.hostName + '-' + host.distribution,
                    'Version': '123', 'OsName': host.distribution,
                    'OsVersion': 'v1234', 'Attestation_Type': 'PCR',
@@ -90,7 +100,7 @@ class DriverOAT():
     def confHost(self, host):
         logger.info('Configure Host')
         url = ('https://' + OAT_LOCATION +
-               ':8443/AttestationService/resources/hosts')
+               ':' + OAT_PORT + '/AttestationService/resources/hosts')
         jsonHost = {'HostName': host.hostName, 'IPAddress': host.address,
                     'Port': '9999',
                     'VMM_Name': host.hostName + '-' + host.distribution,
@@ -108,8 +118,11 @@ class DriverOAT():
 
     def confPCR(self, host):
         logger.info('Configure pcr value at host: ' + host.hostName)
-        url = ('https://'+OAT_LOCATION+':8443/WLMService/resources/mles'
-               '/whitelist/pcr')
+        url = (
+            'https://'+OAT_LOCATION+':' + OAT_PORT +
+            '/WLMService/resources/mles'
+            '/whitelist/pcr'
+        )
         jsonPcr0 = {'pcrName': '0', 'pcrDigest': host.pcr0,
                     'mleName': host.hostName + '-' + host.distribution,
                     'mleVersion': '123', 'osName': host.distribution,
@@ -124,8 +137,10 @@ class DriverOAT():
 
     def pollHost(self, node):
         logger.info('In pollHost method in driverOAT')
-        url = ('https://'+OAT_LOCATION+':8443/AttestationService/resources'
-               '/PollHosts')
+        url = (
+            'https://'+OAT_LOCATION+':' + OAT_PORT +
+            '/AttestationService/resources'
+            '/PollHosts')
 
         logger.info('Analyze node: ' + node['node'])
         listvnf = ''
@@ -232,33 +247,31 @@ class DriverOAT():
 
     def getStatus(self):
         logger.info('Get Status of Driver OAT')
-        message = []
-
-        if not verifier:
-            logger.info('The OAT driver is not configured')
-            message.append({'Driver OAT configured': False})
-            return message
+        configured = False
+        active = False
+        if not OAT_LOCATION:
+            logger.warning('The OAT driver is not configured')
+            configured = False
         else:
-            message.append({'Driver OAT configured': True})
+            configured = True
 
         try:
-            url = 'https://'+OAT_LOCATION+':8443/WLMService/resources/oem'
+            url = (
+                'https://' + OAT_LOCATION + ':'
+                + OAT_PORT + '/WLMService/resources/oem')
+
             logger.debug('Try to contact OAT on %s' % url)
             resp = requests.get(url, verify=False, timeout=5)
             logger.debug('Status = ' + str(resp.status_code))
-            message_oat = {'Driver OAT works': True}
-            logger.info('%s' % str(message_oat))
-            message.append(message_oat)
-        except ConnectionError as e:
-            error_oat = {'Driver OAT works': False}
-            logger.error('Error impossible to contact OAT %s' % e)
-            message.append(error_oat)
-        return message
+            active = True
+        except Exception as e:
+            active = False
+            logger.error('Error impossible to contact OAT %s' % str(e))
+
+        return {OAT_DRIVER: {'configuration': configured, 'active': active}}
 
     @staticmethod
     def resolveOATVerifierUrl(report_url):
-        from trust_monitor_driver.driverOATSettings import *
-
         parsed_url = urlparse.urlparse(report_url)
         resolved_url = report_url.replace(
             parsed_url.netloc,
@@ -275,7 +288,6 @@ class DriverOAT():
                      'Report_id: %s', distro, analysis, report_url,
                      report_id)
         logger.info('Call parsing method to get Digest')
-        parsingOAT = ParsingOAT()
         from subprocess import *
         bash = ("python trust_monitor/verifier/perform_attestation_oat.py"
                 " --analysis " + str(analysis) + " --report_url "

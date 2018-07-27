@@ -15,11 +15,12 @@ from trust_monitor.verifier.structs import IMARecord
 from trust_monitor.attestation_data import (
     HostAttestation, HostAttestationExtraInfo)
 from trust_monitor_driver.driverConstants import *
+from trust_monitor.verifier.instantiateDB import InstantiateDigest
 
 
 requests.packages.urllib3.disable_warnings()
 
-logger = logging.getLogger('django')
+logger = logging.getLogger('driver')
 
 
 class DriverCIT():
@@ -79,13 +80,7 @@ class DriverCIT():
             samlobj = untangle.parse(saml)
 
             # Extract trust information
-            trust = (
-                    samlobj
-                    .saml2_Assertion
-                    .saml2_AttributeStatement
-                    .saml2_Attribute[2]
-                    .saml2_AttributeValue
-                    .cdata)
+            trust = extractTrustLevelFromResult(samlobj)
 
             # Create IMARecord for IMA verification
             rep_parser = XML_CIT_ReportParser(report.content)
@@ -110,9 +105,11 @@ class DriverCIT():
                 ip=settings.CASSANDRA_LOCATION)
 
             # If IMA verification fails, attestation is false
+            logger.debug("IMA Verification result: " + str(result))
             if not result:
                 trust = False
 
+            logger.debug("Creating CIT host attestation extra info")
             # Parse the IMA verification output (in info_digest)
             MapDigest.mapDigest[host.hostName] = info_digest
 
@@ -134,7 +131,7 @@ class DriverCIT():
                 info_digest.n_packages_unknown,
                 info_digest.n_packages_not_security
             )
-
+            logger.debug("CIT host attestation extra info created")
             del info_digest
 
             # Create (and return) the final HostAttestation object
@@ -183,6 +180,21 @@ class DriverCIT():
             active = False
         return {CIT_DRIVER: {'configuration': configured, 'active': active}}
 
+    @classmethod
+    def extractTrustLevelFromResult(samlobj):
+        trust_lvl = (
+            samlobj
+            .saml2_Assertion
+            .saml2_AttributeStatement
+            .saml2_Attribute[2]
+            .saml2_AttributeValue
+            .cdata)
+        logger.debug("CIT trust level for host is " + trust_lvl)
+        if (trust_lvl) == "true":
+            return True
+        else:
+            return False
+
 
 class XML_CIT_ReportParser(object):
 
@@ -224,4 +236,3 @@ class XML_CIT_ReportParser(object):
 
     def __init__(self, report_xml):
         self.report = report_xml
-        logger.info('Get report')

@@ -73,9 +73,9 @@ if __name__ == "__main__":
     logFormatStr = (' %(levelname)s [%(asctime)s] %(module)s'
                     ' - %(message)s')
     formatter = logging.Formatter(logFormatStr, '%Y-%b-%d %H:%M:%S')
-    fileHandler = logging.FileHandler("/logs/verifier/ra_verifier_oat.log")
+    fileHandler = logging.FileHandler("/logs/perform_attestation_oat.log")
     fileHandler.setFormatter(formatter)
-    logger = logging.getLogger('perform_attestation')
+    logger = logging.getLogger('django')
     logger.setLevel(level=logging.DEBUG)
     logger.addHandler(fileHandler)
     main()

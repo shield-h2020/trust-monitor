@@ -28,7 +28,7 @@ from statistics import *
 import logging
 from django.db import OperationalError
 
-logger = logging.getLogger('perform_attestation_oat')
+logger = logging.getLogger('verifier')
 
 # template common fields
 TEMPLATE_PCR_FIELD = 'pcr'

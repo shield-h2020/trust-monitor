@@ -17,7 +17,7 @@ from rest_framework import status
 
 requests.packages.urllib3.disable_warnings()
 
-logger = logging.getLogger('django')
+logger = logging.getLogger('driver')
 
 
 class DriverOAT():

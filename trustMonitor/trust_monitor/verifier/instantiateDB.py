@@ -3,9 +3,9 @@ from util import *
 import logging
 from trust_monitor.models import KnownDigest
 from django.db import OperationalError
-from trust_monitor.engine import redis_instantiate
+import redis
 
-logger = logging.getLogger('perform_attestation')
+logger = logging.getLogger('verifier')
 
 
 # define list of known digests at start of django
@@ -24,8 +24,20 @@ class InstantiateDigest:
             logger.error(e)
 
         # Instantiate digests included in Redis DB
-        list_dig = redis_instantiate()
-        InstantiateDigest.known_digests.extend(list_dig)
+        logger.info('instantiate known_digests with elements in Redis DB')
+        list_digest = []
+        try:
+            redisDB = redis.Redis(host='tm_database_redis', port='6379')
+            list_keys = redisDB.keys('*')
+            for key in list_keys:
+                logger.debug('Added value of key: %s in list' % key)
+                value = redisDB.get(key)
+                list_digest.append(value)
+        except redis.ConnectionError as e:
+            jsonError = {'Error', 'Impossible to contact to Redis DB'}
+            logger.warning('Impossible included the digests in Redis DB')
+            logger.warning(jsonError)
+        InstantiateDigest.known_digests.extend(list_digest)
 
 
 class DigestListUpdater:

@@ -100,12 +100,12 @@ class HostAttestation():
         # Create list of JSON ContainerAttestation objects
         list_json_vnsfs_attest = []
         for cont_attest_data in self.analysis_containers:
-            if type(cont_attest_data) == ContainerAttestation:
+            if isinstance(cont_attest_data, ContainerAttestation):
                 list_json_vnsfs_attest.append(cont_attest_data.json())
 
         # Convert HostAttestationExtraInfo object in JSON
         json_extra_info = {}
-        if type(self.analysis_extra_info) == HostAttestationExtraInfo:
+        if isinstance(self.analysis_extra_info, HostAttestationExtraInfo):
             json_extra_info = self.analysis_extra_info.json()
 
         return {

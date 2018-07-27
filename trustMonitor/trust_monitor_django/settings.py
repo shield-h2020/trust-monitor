@@ -135,19 +135,41 @@ LOGGING = {
         },
     },
     'handlers': {
-        'file-log': {
+        'django-file-log': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': '/logs/trust-monitor.log',
             'formatter': 'verbose'
         },
+        'drivers-file-log': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': '/logs/drivers.log',
+            'formatter': 'verbose'
+        },
+        'verifier-file-log': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': '/logs/verifier.log',
+            'formatter': 'verbose'
+        }
     },
     'loggers': {
         'django': {
-            'handlers': ['file-log'],
+            'handlers': ['django-file-log'],
             'level': 'DEBUG',
             'propagate': True,
         },
+        'driver': {
+            'handlers': ['drivers-file-log'],
+            'level': 'DEBUG'
+            'propagate': True
+        },
+        'verifier': {
+            'handlers': ['verifier-file-log'],
+            'level': 'DEBUG'
+            'propagate': True
+        }
     },
 }
 

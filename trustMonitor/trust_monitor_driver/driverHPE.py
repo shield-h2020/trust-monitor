@@ -9,7 +9,7 @@ from trust_monitor.attestation_data import SDNAttestation
 from trust_monitor_driver.driverConstants import *
 
 
-logger = logging.getLogger('django')
+logger = logging.getLogger('driver')
 
 
 def runSwitchVerifier(node_address):

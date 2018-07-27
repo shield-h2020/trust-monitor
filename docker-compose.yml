@@ -9,16 +9,22 @@ services:
   tm_dashboard_connector:
     image: ra/connectors/dashboard_connector
     build: ./connectors/dashboard_connector
+    volumes:
+      - './logs/tm_connectors/dashboard:/logs'
 #    links:
 #      - tm_rabbitmq_server:rabbitmq_server
 
   tm_dare_connector:
     image: ra/connectors/dare_connector
     build: ./connectors/dare_connector
+    volumes:
+      - './logs/tm_connectors/dare:/logs'
 
   tm_store_connector:
     image: ra/connectors/store_connector
     build: ./connectors/store_connector
+    volumes:
+      - './logs/tm_connectors/store:/logs'
 
   tm_database_redis:
     image: ra/connectors/redis
@@ -27,10 +33,14 @@ services:
   tm_vnsfo_connector:
     image: ra/connectors/tm_vnsfo_connector
     build: ./connectors/vnsfo_connector
+    volumes:
+      - './logs/tm_connectors/vnsfo:/logs'
 
   tm_vimemu_connector:
     image: ra/connectors/tm_vimemu_connector
     build: ./connectors/vimemu_connector
+    volumes:
+      - './logs/tm_connectors/vimemu:/logs'
 
   reverse_proxy:
     image: ra/trust_monitor/reverse_proxy
@@ -54,8 +64,6 @@ services:
       - RUN_DJANGO_APP=1
     depends_on:
       - tm_static_serve
-    #extra_hosts:
-    #  - "$OAT_VERIFIER_CN":$OAT_VERIFIER_IP"
     links:
       - tm_dare_connector:tm_dare_connector
       - tm_dashboard_connector:tm_dashboard_connector
@@ -66,7 +74,6 @@ services:
     volumes:
       - './logs/tm_django_app:/logs'
       - './trustMonitor/docker/db:/db'
-      - './logs/tm_ra_verifier_oat:/logs/verifier'
       # Integration with HPE switchVerifier
       - './hpe:/hpe'
   tm_static_serve:

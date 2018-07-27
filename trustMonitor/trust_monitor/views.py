@@ -8,7 +8,7 @@ from django.conf import settings
 import json
 import requests
 import logging
-from trust_monitor.verifier.instantiateDB import *
+from trust_monitor.verifier.instantiateDB import DigestListUpdater
 from django.core.exceptions import ObjectDoesNotExist
 from trust_monitor.engine import (
     attest_nodes,

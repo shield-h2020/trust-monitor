@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger('perform_attestation')
+logger = logging.getLogger('verifier')
 
 
 class InformationDigest():

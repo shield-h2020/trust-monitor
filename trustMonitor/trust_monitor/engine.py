@@ -9,7 +9,7 @@ from trust_monitor.models import Host
 import redis
 import pycassa
 from trust_monitor.verifier.structs import *
-from trust_monitor.verifier.instantiateDB import *
+from trust_monitor.verifier.instantiateDB import DigestListUpdater
 from trust_monitor_driver.driverOAT import DriverOAT
 from trust_monitor_driver.driverOpenCIT import DriverCIT
 from trust_monitor_driver.driverHPE import DriverHPE
@@ -59,7 +59,7 @@ def get_nodes_from_vnsfo():
     logger.info('Retrieve nodes from vNSFO')
     url_vnsfo_connector = (
         settings.BASIC_URL_VNSFO +
-        'vnsfo/list_nodes'
+        '/vnsfo/list_nodes'
     )
     return requests.get(url_vnsfo_connector).json()
 
@@ -68,7 +68,7 @@ def get_vimemu_vims(list_info_vim):
     logger.info('Retrieve VIM-emu instances from NFVI')
     url_vimemu_connector = (
         settings.BASIC_URL_VIMEMU +
-        'vimemu/list_vimemu_instances')
+        '/vimemu/list_vimemu_instances')
 
     return requests.post(
         url_vimemu_connector,
@@ -79,7 +79,7 @@ def get_vim_by_ip(ip):
     logger.info('Retrieve VIM by IP address')
     url_vnsfo_connector = (
         settings.BASIC_URL_VNSFO +
-        'vnsfo/get_vim_by_ip'
+        '/vnsfo/get_vim_by_ip'
     )
     return requests.post(
         url_vnsfo_connector,
@@ -91,7 +91,7 @@ def get_vnsfs_from_vim(vim):
         logger.info('Get the VNSF instances from VIM: %s' % vim)
         url_vnsfo_connector = (
             settings.BASIC_URL_VNSFO +
-            'vnsfo/list_vnfs_vim'
+            '/vnsfo/list_vnfs_vim'
         )
         responseJson = requests.post(
             url_vnsfo_connector).json()
@@ -256,12 +256,12 @@ def attest_sdn_component(node):
 
 
 def attest_compute(node):
-    host = Host.objects.get(hostName=node)
+    host = Host.objects.get(hostName=node['node'])
     logger.debug('Node found with ip %s' % host.address)
 
     try:
-        logger.info('Query vNSFO (and VIM-EMU) to see if containers \
-            should be added')
+        logger.info('Query vNSFO (and VIM-EMU) to see if containers' +
+                    'should be added')
 
         list_info_vim = get_vim_by_ip(host.address)
         logger.debug('VIM: ' + str(list_info_vim))
@@ -292,8 +292,8 @@ def attest_compute(node):
 
     except Exception as e:
         logger.error(str(e))
-        logger.warning("The vNSFO is not reachable. Will fallback to host \
-            attestation only.")
+        logger.warning("The vNSFO is not reachable. Will fallback to host" +
+                       " attestation only.")
         jsonAttest = {'node': host.hostName}
 
     if host.driver == CIT_DRIVER:
@@ -375,22 +375,3 @@ def redis_db(list_digest):
         return jsonError
     finally:
         del redisDB
-
-
-# method used to instantiate the firsh time the lis of known_digests throught
-# redis element
-def redis_instantiate():
-    logger.info('instantiate known_digests with elements in Redis DB')
-    list_digest = []
-    try:
-        redisDB = redis.Redis(host='tm_database_redis', port='6379')
-        list_keys = redisDB.keys('*')
-        for key in list_keys:
-            logger.debug('Added value of key: %s in list' % key)
-            value = redisDB.get(key)
-            list_digest.append(value)
-    except redis.ConnectionError as e:
-        jsonError = {'Error', 'Impossible to contact to Redis DB'}
-        logger.warning('Impossible included the digests in Redis DB')
-        logger.warning(jsonError)
-    return list_digest

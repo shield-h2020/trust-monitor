@@ -26,7 +26,7 @@ from util import *
 import pycassa
 import logging
 
-logger = logging.getLogger('perform_attestation')
+logger = logging.getLogger('verifier')
 
 
 class DBConnection(object):

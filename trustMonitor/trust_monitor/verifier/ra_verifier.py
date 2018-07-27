@@ -41,7 +41,7 @@ from informationDigest import InformationDigest
 import logging
 
 # use logging system of django.
-logger = logging.getLogger('perform_attestation')
+logger = logging.getLogger('verifier')
 
 # if graph type is 'auto', RA Verifier determines the best choice depending
 # on available information from IMA measurements list

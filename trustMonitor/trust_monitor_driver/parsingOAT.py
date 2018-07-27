@@ -8,7 +8,7 @@ import gc
 import xmltodict
 import ssl
 # use logging system of django.
-logger = logging.getLogger('perform_attestation')
+logger = logging.getLogger('driver')
 
 
 class ParsingOAT():

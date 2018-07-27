@@ -39,7 +39,7 @@ OBJ_W_TARGET = 64
 OBJ_W_HIGH = 128
 OBJ_W_LOW = 256
 
-logger = logging.getLogger('perform_attestation')
+logger = logging.getLogger('verifier')
 
 
 class Analysis(object):

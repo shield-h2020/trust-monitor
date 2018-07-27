@@ -229,6 +229,7 @@ def attest_nodes(node_list):
     if not node_list:
         logger.info("Attest nodes: no information supplied on nodes. Will try \
             with all nodes.")
+        # Node list should be in the form of {"node": <name>} objects
         node_list = get_nodes_from_vnsfo()
 
     logger.info('Received attestation request for: ' + str(node_list))
@@ -245,8 +246,11 @@ def attest_nodes(node_list):
 
         global_status.update(attest_result)
 
-    send_notification_dare(global_status.json())
-    send_notification_dashboard(global_status.json())
+    try:
+        send_notification_dare(global_status.json())
+        send_notification_dashboard(global_status.json())
+    except Exception as e:
+        logger.warning("Notification issue with connectors: " + str(e))
 
     return global_status
 
@@ -261,7 +265,7 @@ def attest_compute(node):
 
     try:
         logger.info('Query vNSFO (and VIM-EMU) to see if containers' +
-                    'should be added')
+                    ' should be added')
 
         list_info_vim = get_vim_by_ip(host.address)
         logger.debug('VIM: ' + str(list_info_vim))

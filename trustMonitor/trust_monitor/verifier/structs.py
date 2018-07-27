@@ -147,19 +147,25 @@ class IMARecord(object):
             self.entry['template_data'])
 
     def __init__(self, data=None):
+        logger.debug("Init IMARecord object")
         self.rank = len(IMARecord.records) + 2
         self.data = data.strip('\n')
 
         self.parse_entry()
+        logger.debug("Parsed entry")
 
         if self.entry['event_name'] == 'boot_aggregate':
             return
 
         self.digest = Digest.get(self, None, False)
+
+        logger.debug("Get digest")
         IMARecord.records.append(self)
 
+        logger.debug("Append IMARecord")
+
     def __del__(cls):
-        logger.debug('Delete IMARecord object in structs.py')
+        logger.debug('Delete IMARecord object')
         del cls.records
 
 

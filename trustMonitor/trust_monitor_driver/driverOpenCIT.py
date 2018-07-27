@@ -94,6 +94,7 @@ class DriverCIT():
             known_digests = " ".join(
                 item for item in InstantiateDigest.known_digests)
 
+            logger.debug("Running IMA verification")
             result = ra_verifier.verifier(
                 host.distribution,
                 host.analysisType,
@@ -105,8 +106,19 @@ class DriverCIT():
                 ip=settings.CASSANDRA_LOCATION)
 
             # If IMA verification fails, attestation is false
-            logger.debug("IMA Verification result: " + str(result))
-            if not result:
+            logger.debug("IMA verification result: " + str(result))
+            if result and trust:
+                if isinstance(result, list):
+                    logger.debug("IMA verification result is of correct type")
+                    # IMA verification is a 2 elements list with a first bool
+                    # and extra info as second item
+                    trust = result[0]
+                else:
+                    logger.debug("IMA verification is of incorrect type")
+                    trust = False
+                logger.debug("IMA verification has result: " + str(trust))
+            else:
+                logger.debug("IMA verification failed")
                 trust = False
 
             logger.debug("Creating CIT host attestation extra info")
@@ -180,23 +192,11 @@ class DriverCIT():
             active = False
         return {CIT_DRIVER: {'configuration': configured, 'active': active}}
 
-    @classmethod
-    def extractTrustLevelFromResult(samlobj):
-        trust_lvl = (
-            samlobj
-            .saml2_Assertion
-            .saml2_AttributeStatement
-            .saml2_Attribute[2]
-            .saml2_AttributeValue
-            .cdata)
-        logger.debug("CIT trust level for host is " + trust_lvl)
-        if (trust_lvl) == "true":
-            return True
-        else:
-            return False
-
 
 class XML_CIT_ReportParser(object):
+
+    def __init__(self, report_xml):
+        self.report = report_xml
 
     def createReport(self):
         try:
@@ -229,10 +229,22 @@ class XML_CIT_ReportParser(object):
             # sha1:event_digest event_name id_docker
             file_line = (pcr + " " + template_digest + " " +
                          template_name + " " + template_data)
-
+            logger.debug("Creating report: adding measure as IMARecord")
             IMARecord(file_line)
         # for child in root:
         #    print child.tag, child.attrib
 
-    def __init__(self, report_xml):
-        self.report = report_xml
+
+def extractTrustLevelFromResult(samlobj):
+    trust_lvl = (
+        samlobj
+        .saml2_Assertion
+        .saml2_AttributeStatement
+        .saml2_Attribute[2]
+        .saml2_AttributeValue
+        .cdata)
+    logger.debug("CIT trust level for host is " + trust_lvl)
+    if (trust_lvl) == "true":
+        return True
+    else:
+        return False

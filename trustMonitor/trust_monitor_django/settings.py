@@ -162,12 +162,12 @@ LOGGING = {
         },
         'driver': {
             'handlers': ['drivers-file-log'],
-            'level': 'DEBUG'
+            'level': 'DEBUG',
             'propagate': True
         },
         'verifier': {
             'handlers': ['verifier-file-log'],
-            'level': 'DEBUG'
+            'level': 'DEBUG',
             'propagate': True
         }
     },

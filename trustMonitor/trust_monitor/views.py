@@ -179,10 +179,14 @@ class AttestNode(APIView):
             serializer = NodeListSerializer(data=value_data)
             if serializer.is_valid():
                 node_list = serializer.data["node_list"]
-                logger.debug('Serializaton of information valid: '
+                logger.debug('Serialization of information valid: '
                              + str(node_list))
 
                 attest_status = attest_nodes(node_list)
+
+                logger.debug(
+                    "Attestation performed with result: " +
+                    str(attest_status.json()))
 
                 return Response(attest_status.json(), status=status.HTTP_200_OK)
             else:
@@ -229,7 +233,7 @@ class AttestNFVI(APIView):
         try:
             attest_result = attest_nodes(None)
             return Response(
-                attest_status.json(), status=status.HTTP_200_OK)
+                attest_result.json(), status=status.HTTP_200_OK)
         except Exception as e:
             logger.error('Error occurred while attesting whole NFVI: ' + str(e))
             return Response(
@@ -270,10 +274,10 @@ class AttestNFVIPoP(APIView):
                 logger.info('Is required the attestation of node %s', node_id)
                 logger.debug('Call driver to attest that node')
 
-                attest_result = attest_nodes([node_id])
+                attest_result = attest_nodes([{'node': node_id}])
 
                 return Response(
-                    attest_status.json(), status=status.HTTP_200_OK)
+                    attest_result.json(), status=status.HTTP_200_OK)
             else:
                 logger.error('Serialization generate an error: %s',
                              str(serializer.errors))

@@ -52,13 +52,13 @@ class RaVerifier():
 
     def __del__(self):
         logger.debug('delete RaVerifier and clean structures')
-        del Digest.digests_dict
-        del Digest.digests_query_done
-        del Digest.packages_query_done
-        del Digest.packages_query
-        del Package.pkg_dict
-        del Subject.subj_label_dict
-        del Object.obj_label_dict
+        Digest.digests_dict = {}
+        Digest.digests_query_done = False
+        Digest.packages_query_done = False
+        Digest.packages_query = set()
+        Package.pkg_dict = {}
+        Subject.subj_label_dict = {}
+        Object.obj_label_dict = {}
 
     def __init__(self):
         logger.info('Set structures')

@@ -14,6 +14,7 @@ from trust_monitor_driver.driverOAT import DriverOAT
 from trust_monitor_driver.driverOpenCIT import DriverCIT
 from trust_monitor_driver.driverHPE import DriverHPE
 from trust_monitor_driver.driverConstants import *
+from trust_monitor.attestation_data import AttestationStatus
 
 
 headers = {'content-type': 'application/json'}
@@ -29,30 +30,29 @@ logger = logging.getLogger('django')
 def send_notification_dare(jsonResult):
     logger.info('Send attestation result to DARE connector')
     # send attestation result to DARE_connector
-    try:
-        url = settings.BASIC_URL_DARE + "/dare_connector/attest_result"
-        resp = requests.post(url, data=json.dumps(jsonResult),
-                             headers=headers)
-        logger.info('Attestation result sent to DARE connector')
-
-    except ConnectionError as e:
-        error = {'Impossible to contact': url}
-        logger.warning('Warning: ' + str(e))
+    url = settings.BASIC_URL_DARE + "/dare_connector/attest_result"
+    resp = requests.post(url, data=json.dumps(jsonResult),
+                         headers=headers)
+    if not resp.status_code == 200:
+        logger.error(
+            'Unable to send a notification to the DARE via its connector')
+    else:
+        logger.info('Notification sent to DARE connector')
 
 
 def send_notification_dashboard(jsonMessage):
-    # if (jsonMessage['NFVI'] == 'untrusted'):
-    logger.info('Send attestation notification to dashboard connector')
-    try:
-        url = (
-            settings.BASIC_URL_DASHBOARD +
-            "/dashboard_connector/attest_notification")
-        response = requests.post(url, data=json.dumps(jsonMessage),
-                                 headers=headers)
-        logger.info('Attestation failed sent to dashboard connector')
-    except ConnectionError as e:
-        error = {'Error impossible to contact': url}
-        logger.warning('Warning: ' + str(e))
+    logger.info('Send attestation notification to Dashboard connector')
+
+    url = (
+        settings.BASIC_URL_DASHBOARD +
+        "/dashboard_connector/attest_notification")
+    resp = requests.post(url, data=json.dumps(jsonMessage),
+                         headers=headers)
+    if not resp.status_code == 200:
+        logger.error(
+            'Unable to send a notification to the Dashboard via its connector')
+    else:
+        logger.info('Notification sent to Dashboard connector')
 
 
 def get_nodes_from_vnsfo():
@@ -192,7 +192,38 @@ def get_connector_status(urlConnector, nameConnector):
 ###############################################################################
 
 
-# TODO: add call to connectors
+def register_node(node):
+
+    logger.debug('The information of the node are:')
+    logger.debug('Name: ' + node.hostName)
+    logger.debug('Address: ' + node.address)
+    logger.debug('PCR-0: ' + node.pcr0)
+    logger.debug('Distribution: ' + node.distribution)
+    logger.debug('Attestation driver: ' + node.driver)
+    logger.debug('AnalysisType: ' + node.analysisType)
+    logger.debug('uuid_host: ' + node.uuid_host)
+
+    logger.info('Call driver to manage new host')
+    if node.driver == OAT_DRIVER:
+        logger.info('Register node OAT')
+        DriverOAT().registerNode(node)
+        logger.info('OAT node registered in DB')
+    elif node.driver == CIT_DRIVER:
+        logger.info('Register node OpenCIT')
+        DriverCIT().registerNode(node)
+        logger.info('CIT node registered in DB')
+    # The host is being registered in the TM application
+    # Distribution is required for other drivers,
+    # use generic value here.
+    elif node.driver == HPE_DRIVER:
+        logger.info('Register node HPESwitch')
+        DriverHPE().registerNode(node)
+        logger.info('HPESwitch node registered in DB')
+    else:
+        logger.warning("Node has unknown attestation driver")
+        raise ValueError("Unknown attestation driver")
+
+
 def attest_nodes(node_list):
 
     if not node_list:
@@ -214,8 +245,8 @@ def attest_nodes(node_list):
 
         global_status.update(attest_result)
 
-    send_notification_dare(attest_result)
-    send_notification_dashboard(attest_result)
+    send_notification_dare(global_status.json())
+    send_notification_dashboard(global_status.json())
 
     return global_status
 

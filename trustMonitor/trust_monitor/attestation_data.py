@@ -6,10 +6,13 @@ logger = logging.getLogger('django')
 
 class AttestationStatus():
     def __init__(self):
-        self.vtime = ''
+        self.vtime = self.get_current_time()
         self.trust = True
         self.list_host_attestation = []
         self.list_sdn_attestation = []
+
+    def get_current_time(self):
+        return int(round(time.time()*1000))
 
     def getTime(self):
         return self.vtime
@@ -18,30 +21,33 @@ class AttestationStatus():
         return self.trust
 
     def update(self, attestation):
-        if type(attestation) == HostAttestation:
+        self.vtime = self.get_current_time()
+        if isinstance(attestation, HostAttestation):
+            logger.debug("Update global attestation status with Host info")
             if not attestation.trust:
-                logger.debug("Trust status changed to false")
+                logger.debug("Trust status changed to False")
                 self.trust = False
             self.list_host_attestation.append(attestation)
-            self.vtime = int(round(time.time()*1000))
-        elif type(attestation) == SDNAttestation:
+        elif isinstance(attestation, SDNAttestation):
+            logger.debug("Update global attestation status with SDN info")
             if not attestation.trust:
-                logger.debug("Trust status changed to false")
+                logger.debug("Trust status changed to False")
                 self.trust = False
             self.list_sdn_attestation.append(attestation)
-            self.vtime = int(round(time.time()*1000))
         else:
-            logger.warning("Impossible to update attestation status (unknown)")
+            logger.error(
+                "Impossible to update attestation status (unknown)")
+            self.trust = False
 
-    def json():
+    def json(self):
         # Create list of JSON HostAttestation objects
         list_json_hosts_attest = []
         for host_attest_data in self.list_host_attestation:
-            if type(host_attest_data) == HostAttestation:
+            if isinstance(host_attest_data, HostAttestation):
                 list_json_hosts_attest.append(host_attest_data.json())
         list_json_sdn_attest = []
         for sdn_attest_data in self.list_sdn_attestation:
-            if type(sdn_attest_data) == SDNAttestation:
+            if isinstance(sdn_attest_data, SDNAttestation):
                 list_json_sdn_attest.append(sdn_attest_data.json())
 
         return {
@@ -65,12 +71,12 @@ class SDNAttestation():
         self.analysis_extra_info = analysis_extra_info
         self.driver = driver
 
-        def json(self):
-            return {
-                'node': self.node,
-                'trust': self.trust,
-                'extra_info': self.analysis_extra_info,
-                'driver': self.driver}
+    def json(self):
+        return {
+            'node': self.node,
+            'trust': self.trust,
+            'extra_info': self.analysis_extra_info,
+            'driver': self.driver}
 
 
 class HostAttestation():

@@ -10,9 +10,12 @@ import requests
 import logging
 from trust_monitor.verifier.instantiateDB import *
 from django.core.exceptions import ObjectDoesNotExist
-from trust_monitor.engine import attest_nodes
 from trust_monitor.engine import (
-    get_connectors_status, get_drivers_status, get_databases_status
+    attest_nodes,
+    get_connectors_status,
+    get_drivers_status,
+    get_databases_status,
+    register_node
 )
 from trust_monitor_driver.driverConstants import *
 import urlparse
@@ -25,9 +28,7 @@ logger = logging.getLogger('django')
 
 class RegisterNode(APIView):
     """
-    List of all physical host or register new host, this class has three
-    methods, a get methods to see list of all node register with
-    Trust Monitor, a post method used to register a new host and a delete method
+    API provides several REST methods to manage registered nodes.
     """
 
     def get(self, request, format=None):
@@ -82,51 +83,11 @@ class RegisterNode(APIView):
                                address=request.data["address"],
                                driver=request.data['driver'],
                                distribution=request.data['distribution'])
-                try:
-                    newHost.pcr0 = request.data["pcr0"]
-                except KeyError as ke:
-                    logger.warning('Pcr0 not given')
-                try:
-                    newHost.analysisType = request.data["analysisType"]
-                except KeyError as ke:
-                    logger.warning('AnalysisType not given')
-                logger.info('The information of the node are:')
-                logger.info('Name: ' + newHost.hostName)
-                logger.info('Address: ' + newHost.address)
-                logger.info('Pcr0: ' + newHost.pcr0)
-                logger.info('Distribution: ' + newHost.distribution)
-                logger.info('Driver attestation: ' + newHost.driver)
-                logger.info('AnalysisType: ' + newHost.analysisType)
-                logger.info('Call driver to manage new host')
-                if newHost.driver == OAT_DRIVER:
-                    logger.info('Register node OAT')
-                    driver_oat.registerNode(newHost)
-                    serializer.save()
-                    logger.info('OAT node registered in DB')
-                    return Response(serializer.data,
-                                    status=status.HTTP_201_CREATED)
-                elif newHost.driver == CIT_DRIVER:
-                    logger.info('Register node OpenCIT')
-                    driver_cit.registerNode(newHost)
-                    serializer.save()
-                    logger.info('CIT node registered in DB')
-                    return Response(serializer.data,
-                                    status=status.HTTP_201_CREATED)
-                # The host is being registered in the TM application
-                # Distribution is required for other drivers,
-                # use generic value here.
-                elif newHost.driver == HPE_DRIVER:
-                    logger.info('Register node HPESwitch')
-                    driver_hpe.registerNode(newHost)
-                    serializer.save()
-                    logger.info('HPESwitch node registered in DB')
-                    return Response(serializer.data,
-                                    status=status.HTTP_201_CREATED)
-                else:
-                    error = {'error': 'Attestation driver not found impossible '
-                                      'add this node'}
-                    logger.error(error)
-                    return Response(error, status=status.HTTP_403_FORBIDDEN)
+
+                register_node(newHost)
+                serializer.save()
+                return Response(serializer.data,
+                                status=status.HTTP_201_CREATED)
             else:
                 logger.error('Serializaton generated an error ' +
                              str(serializer.errors))
@@ -134,7 +95,8 @@ class RegisterNode(APIView):
                                 status=status.HTTP_400_BAD_REQUEST)
         except Exception as ex:
             logger.error('Error occurred while registrering node: ' + str(ex))
-            return Response(str(ex), status=HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                str(ex), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, format=None):
         """
@@ -450,7 +412,7 @@ class Known_Digest(APIView):
 
 class Status(APIView):
     """
-    Return status of trust Monitor used to verify if all component work.
+    Return the status of TM components in JSON format
     """
 
     def get(self, request, format=None):

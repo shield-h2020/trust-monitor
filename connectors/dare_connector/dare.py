@@ -4,6 +4,7 @@ import json
 import logging
 import flask
 import dare_settings
+import requests
 
 app = flask.Flask('dare_connector')
 
@@ -11,26 +12,16 @@ app = flask.Flask('dare_connector')
 @app.route("/dare_connector/attest_result", methods=["POST"])
 def attest_result():
     app.logger.debug('In post method of dare_connector/attest_result')
-    try:
 
-        if request.is_json:
-            app.logger.info('Received a json object')
-            data = request.get_json()
-            jsonData = json.dumps(data, ensure_ascii=False)
-            app.logger.info('Send data to DARE: %s' % jsonData)
-            url = dare_settings.DARE_BASE_URL
-            app.logger.info(url)
-            response = requests.post(url, data=jsonData)
-            jsonResponse = {'Result': 'True'}
-            return flask.Response(json.dumps(jsonResponse))
-        else:
-            jsonError = {'Error': 'Accept only json objects'}
-            app.logger.error(jsonError)
-            return flask.Response(json.dumps(jsonError))
-    except Exception as e:
-        jsonError = {'Error': e}
-        app.logger.error(jsonError)
-        return flask.Response(json.dumps(jsonError))
+    data = request.get_json()
+    app.logger.info('Received a json object')
+    jsonData = json.dumps(data, ensure_ascii=False)
+    app.logger.info('Send data to DARE: %s' % jsonData)
+    url = dare_settings.DARE_BASE_URL
+    app.logger.info(url)
+    response = requests.post(url, data=jsonData)
+    jsonResponse = {'Result': 'True'}
+    return flask.Response(json.dumps(jsonResponse))
 
 
 @app.route("/dare_connector", methods=["GET"])

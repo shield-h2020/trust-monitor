@@ -18,7 +18,7 @@ from trust_monitor.engine import (
     register_node
 )
 from trust_monitor_driver.driverConstants import *
-import urlparse
+from trust_monitor_driver.driverOAT import verify_callback
 
 
 logger = logging.getLogger('django')
@@ -441,7 +441,7 @@ class VerifyCallback(APIView):
             report_url = serializer.data["report_url"]
             report_id = serializer.data["report_id"]
 
-            return DriverOAT().verify_callback(
+            return verify_callback(
                 distro, analysis, report_url, report_id)
         else:
             logger.error('Serialization generated an error ' +

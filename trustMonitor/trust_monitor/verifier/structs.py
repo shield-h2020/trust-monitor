@@ -164,10 +164,6 @@ class IMARecord(object):
 
         logger.debug("Append IMARecord")
 
-    def __del__(cls):
-        logger.debug('Delete IMARecord object')
-        del cls.records
-
 
 class Digest(GenericNode):
     digests_dict = {}

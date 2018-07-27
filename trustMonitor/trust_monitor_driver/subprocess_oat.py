@@ -1,18 +1,15 @@
-from sys import argv
-import logging
-from trust_monitor.verifier.structs import *
-from suds.client import Client
-from trust_monitor.verifier.parser import IRParser, IMAMeasureHandler
-from trust_monitor.verifier.parser import ContainerCheckAnalysis
-import gc
-import argparse
-from informationDigest import InformationDigest
-from trust_monitor.verifier.ra_verifier import RaVerifier
-from parsingOAT import *
 import sys
+import os
+import logging
+from suds.client import Client
+
+import argparse
 
 
 def main():
+    from trust_monitor_driver.informationDigest import InformationDigest
+    from trust_monitor.verifier.ra_verifier import RaVerifier
+    from trust_monitor_driver.parsingOAT import ParsingOAT
     parsingOAT = ParsingOAT()
     CLI = argparse.ArgumentParser()
     CLI.add_argument("--listdigest", nargs="*",)
@@ -48,10 +45,13 @@ def main():
                                   ip=ip_cassandra)
     logger.debug('Return of method and result is %s', result)
     if result[0] is True:
+        logger.debug("Verification has positive result")
         print 0
     elif result[0] is False:
+        logger.debug('Verification has negative result')
         print 1
     else:
+        logger.debug("An error occurred during verification")
         print 2
         sys.exit(0)
     print info_digest.list_not_found
@@ -73,9 +73,12 @@ if __name__ == "__main__":
     logFormatStr = (' %(levelname)s [%(asctime)s] %(module)s'
                     ' - %(message)s')
     formatter = logging.Formatter(logFormatStr, '%Y-%b-%d %H:%M:%S')
-    fileHandler = logging.FileHandler("/logs/perform_attestation_oat.log")
+    fileHandler = logging.FileHandler("/logs/subprocess_oat.log")
     fileHandler.setFormatter(formatter)
-    logger = logging.getLogger('django')
+    logger = logging.getLogger('default')
     logger.setLevel(level=logging.DEBUG)
     logger.addHandler(fileHandler)
+    from os import sys, path
+    sys.path.append(path.abspath(path.join(path.dirname(__file__), '..')))
+    logger.debug(sys.path)
     main()

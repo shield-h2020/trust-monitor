@@ -117,7 +117,7 @@ class LoadTimeAnalysis(Analysis):
                     fullpath = 'no_path'
                 logger.warning('Digest path %s' % fullpath)
                 meas_prop = digest_obj.ima_records[0].entry['id-docker']
-                digestJson = {'Measure of': meas_prop,
+                digestJson = {'instance': meas_prop,
                               fullpath: digest_obj.digest_string}
                 if meas_prop not in informationDigest.list_prop_not_found:
                     informationDigest.list_prop_not_found.append(meas_prop)

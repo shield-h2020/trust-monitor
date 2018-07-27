@@ -9,7 +9,6 @@ class HostSerializer(serializers.ModelSerializer):
         model = Host
         fields = ('id',
                   'hostName',
-                  'uuid_host',
                   'address',
                   'pcr0',
                   'distribution',

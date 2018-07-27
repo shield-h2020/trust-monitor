@@ -349,6 +349,9 @@ Then, run the following command to retrieve the `uuid_host` parameter:
 mw_as=# select uuid_hex from mw_hosts;
 ```
 
+The `uuid_host` parameter must be set as `hostName` of the CIT host when
+registering it.
+
 ## Connect the TM to the HPE switch attestation framework
 
 *N.B:* This section refers to the Docker-based deployment.
@@ -410,7 +413,6 @@ In order to register an host, add the following content in the `POST` body:
 {"distribution": "<distro (e.g. CentOS7/HPE)>", "hostName": "<host name>",
 "driver":"OAT/OpenCIT/HPESwitch", "address": "xxx.xxx.xxx.xxx"}
 ```
-In case of Open CIT, you need to provide the `uuid_host` parameter as well.
 
 In order to delete a registered node, you can access the same API with a `DELETE`
 request (e.g. via `curl`):

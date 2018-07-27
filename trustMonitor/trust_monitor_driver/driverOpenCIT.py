@@ -43,7 +43,7 @@ class DriverCIT():
         logger.info('Analyse node: ' + host.hostName)
         try:
             # First, query the AS to attest the host
-            jsonAttest = {'host_uuid': host.uuid_host}
+            jsonAttest = {'host_uuid': host.hostName}
             logger.debug('Define json object to be sent to OpenCIT '
                          'to perform attestation')
             respo = requests.post(
@@ -58,7 +58,7 @@ class DriverCIT():
             # Then, retrieve the AS report
             url = (
                 "https://" + CIT_LOCATION +
-                ":8443/mtwilson/v2/host-attestations?nameEqualTo=" +
+                ":8443/mtwilson/v2/host-attestations?host_id=" +
                 host.hostName)
             report = requests.get(
                 url,

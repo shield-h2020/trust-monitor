@@ -141,15 +141,15 @@ class HostAttestationExtraInfo():
 
     def json(self):
         return {
-            'Digest ok': self.n_digests_ok,
-            'Digest not found': self.n_digests_not_found,
-            'Digest fake lib': self.n_digests_fake_lib,
-            'List Digest not found': self.digest_list_not_found,
-            'List Digest Fake Lib': self.digest_list_fake_lib,
-            'Packages ok': self.n_packages_ok,
-            'Packages security': self.n_packages_security,
-            'Packages unknown': self.n_packages_unknown,
-            'Packages not security':
+            'n_digests_valid': self.n_digests_ok,
+            'n_digests_not_found': self.n_digests_not_found,
+            'n_digests_fake_lib': self.n_digests_fake_lib,
+            'list_digests_not_found': self.digest_list_not_found,
+            'list_digests_fake_lib': self.digest_list_fake_lib,
+            'n_packages_valid': self.n_packages_ok,
+            'n_packages_security': self.n_packages_security,
+            'n_packages_unknown': self.n_packages_unknown,
+            'n_packages_not_security':
             self.n_packages_not_security
         }
 

@@ -201,7 +201,6 @@ def register_node(node):
     logger.debug('Distribution: ' + node.distribution)
     logger.debug('Attestation driver: ' + node.driver)
     logger.debug('AnalysisType: ' + node.analysisType)
-    logger.debug('uuid_host: ' + node.uuid_host)
 
     logger.info('Call driver to manage new host')
     if node.driver == OAT_DRIVER:

@@ -144,8 +144,10 @@ class RegisterNode(APIView):
 
 class AttestNode(APIView):
     """
-    List of all Result AttestNode or execution of a new attestation if
-    the node is previously registered to Trust Monitor.
+    Allows to attest one or more nodes with a POST request. The body of the
+    request is as follows:
+    `{"node_list": [{"node": "example1", "vnfs": ["cont1"]},
+    {"node": "example2"}]}`
     """
 
     def post(self, request, format=None):
@@ -208,25 +210,7 @@ class AttestNFVI(APIView):
     def get(self, request, format=None):
         """
         This method is used to attest all nodes register to Trust Monitor.
-        Example:
-            Call https://trust-monitor.it/get_nfvi_attestation_info get method.
-        Args:
-
-        Return:
-            json object: {
-                          "NFVI": "trusted/untrusted",
-                          "vtime": "time of attestation"
-                          [
-                            {"node":"Node1",
-                             "trust_lvl":"trusted/untrusted/timeout"
-                             "analysis_status": "COMPLETED"}
-                          ]
-                         }
-            where:
-            All_NFVI is trusted if all node are trusted otherwise no.
-            vtime is the time of attestation.
-            And there are a list of node, that define in detail if node for
-            example "Node1" is trusted or not.
+        The GET request does not require any parameters.
         """
         logger.info('Call this method to attest all node register to Trust'
                     ' Monitor')
@@ -243,23 +227,13 @@ class AttestNFVI(APIView):
 class AttestNFVIPoP(APIView):
     """
     Used to attest one node registered with Trust Monitor.
+    The GET request only requires a 'node_id' parameter with the name of the
+    NFVI node registered in the infrastructure
     """
     def get(self, request, format=None):
         """
         This method is used to attest one node which is registered with
         Trust Monitor.
-        Example:
-            Call basic-url/get_nfvi_pop_attestation_info get
-            method with one parameter: node_id = 'name of node'
-        Args:
-            Name of node to attest.
-        Return:
-            json object: {
-                            "node_id": "name of node",
-                            "trust_lvl": "trusted/untrusted/timeout",
-                            "vtime": "time of attestation",
-                            "analysis_status": "COMPLETED/ERROR"
-                         }
         """
         logger.info('Call this method to attest one node reigstered with '
                     'Trust Monitor.')

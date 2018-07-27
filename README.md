@@ -432,3 +432,12 @@ the `POST` body:
 ```
 {"node_list" : [{"node" : "<host name>"}]}
 ```
+
+Other attestation APIs (with `GET` request only) are:
+
+* `https://<TRUST_MONITOR_BASE_URL_OR_IP>/nfvi_pop_attestation_info?node_id=<id>`
+* `https://<TRUST_MONITOR_BASE_URL_OR_IP>/nfvi_attestation_info/`
+
+While the first allows to attest a single node of the NFVI, given its name,
+the second returns the trust status of the whole infrastructure. The second API
+requires a working vNSFO connector to retrieve the list of running nodes.

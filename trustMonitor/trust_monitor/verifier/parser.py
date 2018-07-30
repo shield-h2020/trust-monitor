@@ -28,7 +28,7 @@ from structs import IMARecord
 import xml.sax
 import logging
 
-logger = logging.getLogger('django')
+logger = logging.getLogger('verifier')
 
 
 def parse_IMA_Image(hash_str, type_str, image_blob, containerCheckAnalysis):

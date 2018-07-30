@@ -5,6 +5,9 @@ import json
 import logging
 import flask
 import yaml
+import store_settings
+import requests
+import os.path
 
 app = Flask('store_connector')
 
@@ -13,6 +16,7 @@ app = Flask('store_connector')
            methods=["POST"])
 def store_vnsfs_digests():
     app.logger.debug('In post method of store_connector/get_vnsfs_digests')
+    # Input: { 'list_vnf' : ['name_vnf', 'name2_vnf']}
     if request.is_json:
         app.logger.info('Received a json object')
         data = request.get_json()
@@ -22,22 +26,40 @@ def store_vnsfs_digests():
         app.logger.error(jsonResponse)
         return flask.Response(json.dumps(jsonResponse))
     app.logger.debug('parsing data')
-    list_digest = parser_data(data)
+    list_digest = retrieve_digests_from_store(data)
     app.logger.info('Measures: %s' % str(list_digest))
     return flask.Response(json.dumps(list_digest))
 
 
-def parser_data(data):
+def load_security_manifest_from_store(vnf):
+
+    result = {}
+    if os.path.isfile(str(vnf) + '.yaml'):
+        app.logger.debug('Analyze file %s' % str(vnf))
+        stream = file(str(vnf)+'.yaml')
+        result = yaml.load(stream)
+    else:
+        app.logger.debug('Contact vNSF Store API to retrieve security manifest')
+        # Compose URL by attaching vnf identifier to base url
+        url = store_settings.STORE_BASE_URL + '/' + str(vnf)
+        app.logger.info(url)
+        response = requests.get(url)
+        logger.debug('Response received from vNSF Store API')
+        result = yaml.load(response.text)
+
+    logger.info("vNSF Store API response is: " + result)
+    return result
+
+
+def retrieve_digests_from_store(data):
     app.logger.info('Parser data')
     app.logger.info(data)
     app.logger.info(data['list_vnf'])
     list_digest = []
     for vnf in data['list_vnf']:
         try:
-            app.logger.info('Analyze file %s' % str(vnf))
-            stream = file(str(vnf)+'.yaml')
-            doc = yaml.load(stream)
-            values = (doc['manifest:vnsf']['security_info']['vdu']
+            sec_manifest = load_security_manifest_from_store(vnf)
+            values = (sec_manifest['manifest:vnsf']['security_info']['vdu']
                       [0]['attestation'])
             if values is not None:
                 app.logger.debug('Measure %s' % str(values))
@@ -50,6 +72,9 @@ def parser_data(data):
         except yaml.YAMLError, exc:
             json_error = {'Error in configuration file': exc}
             app.logger.error(json_error)
+        except Exception as e:
+            json_error = {'Generic error': e}
+            app.logger.error(json_error)
     return list_digest
 
 
@@ -57,7 +82,8 @@ def parser_data(data):
 def get_store_running():
     app.logger.debug('In get method of dare_connector')
     app.logger.info('running')
-    jsonResponse = {'running': True}
+    jsonResponse = {'Active': True}
+    app.logger.info(jsonResponse)
     return flask.Response(json.dumps(jsonResponse))
 
 

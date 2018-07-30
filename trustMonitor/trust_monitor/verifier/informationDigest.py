@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger('driver')
+logger = logging.getLogger('verifier')
 
 
 class InformationDigest():
@@ -24,16 +24,12 @@ class InformationDigest():
         del self.list_not_found
         del self.list_fake_lib
         del self.list_containers
-        del self.host
         del self.list_prop_not_found
         del self.n_digests_not_found
         del self.n_digests_ok
+        del self.host
         del self.n_digests_fake_lib
         del self.n_packages_ok
         del self.n_packages_security
         del self.n_packages_not_security
         del self.n_packages_unknown
-
-
-class MapDigest():
-    mapDigest = {}

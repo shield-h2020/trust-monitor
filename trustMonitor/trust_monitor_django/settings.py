@@ -124,11 +124,6 @@ STATIC_ROOT = '/static'
 CASSANDRA_LOCATION = ''
 CASSANDRA_PORT = '9160'
 
-# If you are using an OAT driver, configure this parameter
-OAT_LOCATION = ''
-# If you are using a CIT driver, configure this parameter
-CIT_LOCATION = ''
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -140,27 +135,50 @@ LOGGING = {
         },
     },
     'handlers': {
-        'file-log': {
+        'django-file-log': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': '/logs/trust-monitor.log',
             'formatter': 'verbose'
         },
+        'drivers-file-log': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': '/logs/drivers.log',
+            'formatter': 'verbose'
+        },
+        'verifier-file-log': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': '/logs/verifier.log',
+            'formatter': 'verbose'
+        }
     },
     'loggers': {
         'django': {
-            'handlers': ['file-log'],
+            'handlers': ['django-file-log'],
             'level': 'DEBUG',
             'propagate': True,
         },
+        'driver': {
+            'handlers': ['drivers-file-log'],
+            'level': 'DEBUG',
+            'propagate': True
+        },
+        'verifier': {
+            'handlers': ['verifier-file-log'],
+            'level': 'DEBUG',
+            'propagate': True
+        }
     },
 }
 
 BASIC_URL_DARE = 'http://tm_dare_connector:5000'
-BASIC_URL_STORE = 'http://localhost:5100'
-BASIC_URL_DASHBOARD = 'http://tm_dashboard_connector:5000'
-BASIC_URL_MANAGEOSM = 'http://tm_manage_osm_connector:5000'
 BASIC_URL_STORE = 'http://tm_store_connector:5000'
+BASIC_URL_DASHBOARD = 'http://tm_dashboard_connector:5000'
+BASIC_URL_VNSFO = 'http://tm_vnsfo_connector:5000'
+BASIC_URL_STORE = 'http://tm_store_connector:5000'
+BASIC_URL_VIMEMU = 'http://tm_vimemu_connector:5000'
 
 try:
     LOCAL_SETTINGS

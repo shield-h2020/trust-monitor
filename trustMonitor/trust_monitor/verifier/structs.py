@@ -26,40 +26,9 @@ import os
 from util import *
 from statistics import *
 import logging
-from trust_monitor.models import KnownDigest
 from django.db import OperationalError
-from trust_monitor.engine import redis_instantiate
 
-logger = logging.getLogger('django')
-
-# define list of known digests at start of django
-known_digests = []
-try:
-    list_d = KnownDigest.objects.values('digest')
-    for dig in list_d:
-        known_digests.append(dig.get('digest'))
-        logger.info('Set a list of known_digests')
-except OperationalError as e:
-    logger.error(e)
-
-# Instantiate digests included in Redis DB
-list_dig = redis_instantiate()
-known_digests.extend(list_dig)
-
-
-class DigestListUpdater:
-    def append_known_digest(digest):
-        if digest is known_digests:
-            logger.info('Digest %s already exist in the list of digest', digest)
-        else:
-            known_digests.append(digest)
-            logger.info('Added digest %s in the list', digest)
-
-
-    def remove_known_digest(digest):
-        known_digests.remove(digest)
-        logger.info('Removed digest %s in the list', digest)
-
+logger = logging.getLogger('verifier')
 
 # template common fields
 TEMPLATE_PCR_FIELD = 'pcr'
@@ -108,6 +77,7 @@ class IMATemplateDesc(object):
         return data[idx]
 
     def __init__(self, name, fmt):
+        logger.debug('Init IMARecord')
         self.name = name
         self.fmt = fmt
         self.fields = fmt.split('|')
@@ -177,20 +147,22 @@ class IMARecord(object):
             self.entry['template_data'])
 
     def __init__(self, data=None):
+        logger.debug("Init IMARecord object")
         self.rank = len(IMARecord.records) + 2
         self.data = data.strip('\n')
 
         self.parse_entry()
+        logger.debug("Parsed entry")
 
         if self.entry['event_name'] == 'boot_aggregate':
             return
 
         self.digest = Digest.get(self, None, False)
+
+        logger.debug("Get digest")
         IMARecord.records.append(self)
 
-    def __del__(cls):
-        logger.debug('Delete IMARecord object in structs.py')
-        cls.records = {}
+        logger.debug("Append IMARecord")
 
 
 class Digest(GenericNode):
@@ -216,11 +188,12 @@ class Digest(GenericNode):
         return cls(ima_record, event_name, fake)
 
     @classmethod
-    def execute_digests_query(cls, conn, distro):
+    def execute_digests_query(cls, conn, distro, known_digests):
         if cls.digests_query_done:
             return
         # define known_digests.
-        rows = list(set(cls.digests_dict.keys()) - set(known_digests))
+        rows = list(set(cls.digests_dict.keys()) -
+                    set(known_digests))
         distribution = [distro, 'EPEL7']
         logger.info(distribution)
         query_result = conn.multiget_query(rows, 'FilesToPackages', distro,

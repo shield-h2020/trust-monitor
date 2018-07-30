@@ -9,7 +9,6 @@ class HostSerializer(serializers.ModelSerializer):
         model = Host
         fields = ('id',
                   'hostName',
-                  'uuid_host',
                   'address',
                   'pcr0',
                   'distribution',
@@ -53,3 +52,7 @@ class VerificationValues(serializers.Serializer):
 
 class VerificationInputNFVI(serializers.Serializer):
     node_id = serializers.CharField()
+
+
+class VerificationDeleteRegisteredNode(serializers.Serializer):
+    hostName = serializers.CharField()

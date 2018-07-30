@@ -4,7 +4,6 @@ from django.db import models
 
 class Host(models.Model):
     hostName = models.TextField()
-    uuid_host = models.TextField(default='None')
     address = models.CharField(max_length=16, blank=False)
     pcr0 = models.CharField(max_length=40, default='None')
     distribution = models.TextField()

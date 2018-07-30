@@ -5,42 +5,58 @@ from flask import jsonify
 import json
 import logging
 import flask
+import dashboard_settings
 
 app = Flask('dashboard_connector')
 
 
-@app.route("/dashboard_connector/attestation_failed",
+@app.route("/dashboard_connector/attest_notification",
            methods=["POST"])
-def attestation_failed():
+def attest_notification():
     app.logger.debug('In post method of'
-                     ' dashboard_connector/attestation_failed')
+                     ' dashboard_connector/attest_notification')
     connection = pika.BlockingConnection(
-        pika.ConnectionParameters(host='rabbitmq_server'))
+        pika.ConnectionParameters(
+            host=dashboard_settings.DASHBOARD_HOSTNAME,
+            port=dashboard_settings.DASHBOARD_PORT,
+            connection_attempts=dashboard_settings.DASHBOARD_ATTEMPTS,
+            retry_delay=dashboard_settings.DASHBOARD_RETRY_DELAY,
+            blocked_connection_timeout=300))
+
     channel = connection.channel()
-    channel.queue_declare(queue='dashboard_queue', durable=True)
-    app.logger.info('Connect with rabbitmq_server')
+    channel.exchange_declare(
+        exchange=dashboard_settings.DASHBOARD_EXCHANGE,
+        exchange_type='topic')
+    app.logger.debug(
+        "Connected to dashboard at hostname: " +
+        dashboard_settings.DASHBOARD_HOSTNAME + ":" +
+        dashboard_settings.DASHBOARD_PORT)
+
     if request.is_json:
-        app.logger.info('Received a json object')
         data = request.get_json()
-        app.logger.info('Message sent to dashboard_queue')
     else:
-        jsonError = {'Error': 'Accept only json objects'}
+        jsonError = {'Result': False}
         app.logger.error(jsonError)
         return flask.Response(json.dumps(jsonError))
     jsonData = json.dumps(data, ensure_ascii=False)
-    channel.basic_publish(exchange='',
-                          routing_key='dashboard_queue',
+
+    channel.basic_publish(exchange=dashboard_settings.DASHBOARD_EXCHANGE,
+                          routing_key=dashboard_settings.DASHBOARD_TOPIC,
                           body=jsonData)
-    app.logger.info(jsonData)
+
+    app.logger.info("Published notification on attestation \
+        from TM to dashboard.")
+    app.logger.debug(jsonData)
+    channel.close()
     connection.close()
-    jsonResponse = {'Message': 'Received'}
+    jsonResponse = {'Result': True}
     return flask.Response(json.dumps(jsonResponse))
 
 
 @app.route("/dashboard_connector", methods=["GET"])
 def getStatus():
     app.logger.debug('In get method of dashboard_connector')
-    jsonResponse = {'Runnging': True}
+    jsonResponse = {'Active': True}
     app.logger.info(jsonResponse)
     return flask.Response(json.dumps(jsonResponse))
 

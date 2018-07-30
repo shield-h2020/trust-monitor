@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 # start verify used to contact django API to start with verification process.
-# Use django API: http://django/get_verify and use a post method.
+# Use django API: http://django/verify_callback/ and use a post method.
 
 import requests
 import sys
@@ -12,7 +12,7 @@ from setting import *
 
 if __name__ == '__main__':
     try:
-        url = BASE_URL_TRUST_MONITOR + '/get_verify/'
+        url = BASE_URL_TRUST_MONITOR + '/verify_callback/'
         headers = {'content-type': 'application/json'}
         print('Call start_verify used to contact django API')
         distro = 'CentOS7'

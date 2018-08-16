@@ -81,3 +81,13 @@ services:
     build: ./trustMonitor
     environment:
       - SERVE_STATIC=1
+
+  tm_scheduler:
+    image: ra/trust_monitor_tm_scheduler
+    build: ./scheduler
+    depends_on:
+      - reverse_proxy
+    links:
+      - reverse_proxy:reverse_proxy
+    volumes:
+      - './logs/tm_scheduler:/logs'

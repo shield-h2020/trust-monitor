@@ -30,6 +30,7 @@ trust-monitor
 │   ├── Dockerfile
 │   ├── html
 │   └── ssl
+├── scheduler
 └── trustMonitor
     ├── docker
     ├── Dockerfile
@@ -51,6 +52,9 @@ that instantiates a reverse proxy for the TM app.
 
 The directory `OAThelper` includes additional data for the integration of
 OAT attestation drivers.
+
+The directory `scheduler` includes an optional Docker module to run periodic
+attestation.
 
 **N.B:** The Trust Monitor application requires several other components to work
 properly, as its behaviour is not standalone. First of all, the TM app
@@ -443,3 +447,21 @@ Other attestation APIs (with `GET` request only) are:
 While the first allows to attest a single node of the NFVI, given its name,
 the second returns the trust status of the whole infrastructure. The second API
 requires a working vNSFO connector to retrieve the list of running nodes.
+
+## Setup periodic attestation
+
+The `scheduler` folder includes a Docker-based module that runs periodically
+the call to attest the whole NFVI infrastructure, which in turns triggers
+notifications to the other components (i.e. the DARE and dashboard). In order to
+enable periodic attestation, you just need to edit the
+`scheduler/docker/scheduler_config.py` file as follows:
+
+```
+PA_SEC_INTERVAL = ... # set an integer greater than 0 to enable periodic
+                      # attestation
+
+PA_URL = "https://reverse_proxy/nfvi_attestation_info" # should not be changed
+
+PA_SEC_TIMEOUT = 3 # can be modified to set a maximum timeout for each
+                   # attestation request
+```

@@ -86,7 +86,7 @@ services:
     image: ra/trust_monitor_tm_scheduler
     build: ./scheduler
     depends_on:
-      - tm_django_app:
+      - tm_django_app
     links:
       - tm_django_app:dm_django_app
     volumes:

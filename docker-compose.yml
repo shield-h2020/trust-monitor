@@ -86,8 +86,8 @@ services:
     image: ra/trust_monitor_tm_scheduler
     build: ./scheduler
     depends_on:
-      - tm_django_app
+      - reverse_proxy
     links:
-      - tm_django_app:dm_django_app
+      - reverse_proxy:reverse_proxy
     volumes:
       - './logs/tm_scheduler:/logs'

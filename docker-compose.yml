@@ -81,3 +81,13 @@ services:
     build: ./trustMonitor
     environment:
       - SERVE_STATIC=1
+
+  tm_scheduler:
+    image: ra/trust_monitor_tm_scheduler
+    build: ./scheduler
+    depends_on:
+      - tm_django_app:
+    links:
+      - tm_django_app:dm_django_app
+    volumes:
+      - './logs/tm_scheduler:/logs'

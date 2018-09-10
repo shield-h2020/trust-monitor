@@ -17,6 +17,7 @@ trust-monitor
 │   ├── store_connector
 │   ├── vimemu_connector
 │   └── vnsfo_connector
+├── digestsHelper
 ├── docker-compose.yml
 ├── hpe
 ├── LICENSE
@@ -55,6 +56,9 @@ OAT attestation drivers.
 
 The directory `scheduler` includes an optional Docker module to run periodic
 attestation.
+
+The directory `digestsHelper` includes an helper script for including additional
+digests in the whitelist database.
 
 **N.B:** The Trust Monitor application requires several other components to work
 properly, as its behaviour is not standalone. First of all, the TM app

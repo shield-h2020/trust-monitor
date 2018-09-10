@@ -41,6 +41,8 @@ class InstantiateDigest:
 
 
 class DigestListUpdater:
+
+    @staticmethod
     def append_known_digest(digest):
         if digest is InstantiateDigest.known_digests:
             logger.info('Digest %s already exist in the list of digest'
@@ -49,6 +51,7 @@ class DigestListUpdater:
             InstantiateDigest.known_digests.append(digest)
             logger.info('Added digest %s in the list', digest)
 
+    @staticmethod
     def remove_known_digest(digest):
         InstantiateDigest.known_digests.remove(digest)
         logger.info('Removed digest %s in the list', digest)

@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/bash -e
 
 if [[ -n "$RUN_DJANGO_APP" ]]; then
     python manage.py makemigrations trust_monitor

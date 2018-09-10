@@ -100,7 +100,7 @@ class DriverHPE():
         except Exception as e:
             logger.error(
                 "Exception occurred while attesting HPE node " +
-                str(generic_exception))
+                str(e))
             return None
 
 

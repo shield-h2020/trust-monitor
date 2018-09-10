@@ -1,19 +1,12 @@
-FROM python:2-alpine
+FROM python:2
 
 LABEL maintainer="Marco De Benedictis <marco.debenedictis@polito.it>"
 
 RUN mkdir /logs /db
 
-#RUN echo 'https://dl-3.alpinelinux.org/alpine/v3.4/main' > /etc/apk/repositories  && \
-#    echo '@testing https://dl-3.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories && \
-#    echo '@community https://dl-3.alpinelinux.org/alpine/v3.4/community'
-
 WORKDIR /usr/src/app
 
-RUN apk --update --no-cache add \
-        graphviz-dev \
-        gcc \
-        musl-dev
+RUN apt-get update && apt-get install -y graphviz-dev gcc
 
 COPY requirements.txt ./
 
@@ -23,7 +16,7 @@ COPY . .
 
 COPY ./docker/ssl/certs/* /etc/ssl/certs/
 
-RUN /etc/ca-certificates/update.d/certhash
+RUN update-ca-certificates
 
 EXPOSE 8000
 

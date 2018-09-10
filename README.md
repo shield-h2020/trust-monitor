@@ -448,6 +448,28 @@ While the first allows to attest a single node of the NFVI, given its name,
 the second returns the trust status of the whole infrastructure. The second API
 requires a working vNSFO connector to retrieve the list of running nodes.
 
+### Update the list of known digests
+
+The Trust Monitor includes an additional whitelist for known digests, in
+addition to the whitelist database for a specific distribution. In order to show
+the list of added digests, access the following `GET` API:
+
+```
+https://<TRUST_MONITOR_BASE_URL_OR_IP>/known_digests/
+```
+
+In order to add a new digest, add the following content in the `POST` body:
+
+```
+{'pathFile': '/usr/bin/test', 'digest': 'sha1(/usr/bin/test)'}
+```
+
+In order to remove a digest, use the following content in the `DELETE` body:
+
+```
+{'digest': 'sha1(/usr/bin/test)'}
+```
+
 ## Setup periodic attestation
 
 The `scheduler` folder includes a Docker-based module that runs periodically

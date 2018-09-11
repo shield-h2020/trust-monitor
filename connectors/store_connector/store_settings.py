@@ -4,4 +4,4 @@
 ###############################################################################
 
 # Base URL for the vNSF Store API
-STORE_BASE_URL = 'http://10.101.10.xxx/get_security_manifest'
+STORE_BASE_URL = 'http://10.101.10.xxx/attestation/vnsfs/'

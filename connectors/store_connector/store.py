@@ -47,12 +47,12 @@ def load_attestation_data_from_store(vnf):
         logger.debug('Response received from vNSF Store API')
         data = json.load(response.text)
 
-    logger.info(data)
+    app.logger.info(data)
     digests_list = []
     for vdu_digest in data["digests"]:
         for key in vdu_digest.keys():
             if key != "instance":
-                digests_list.append({key, vdu_digest[key]})
+                digests_list.append({key: vdu_digest[key]})
 
     return digests_list
 

@@ -19,7 +19,6 @@ trust-monitor
 │   └── vnsfo_connector
 ├── digestsHelper
 ├── docker-compose.yml
-├── hpe
 ├── LICENSE
 ├── logs
 ├── OAThelper
@@ -362,33 +361,23 @@ registering it.
 
 ## Connect the TM to the HPE switch attestation framework
 
-*N.B:* This section refers to the Docker-based deployment.
+The HPE switch verifier must be not run behind a NAT, as it leverages SNMP.
+Because of this, the preferred way of running the HPE attestation driver is
+via a direct SSH connection to the switch verifier host.
 
-You need to place the HPE switchVerifier binary and configuration file in the
-`hpe` directory. Then, you need to configure the name of these configuration
-files and binary in the `trustMonitor/trust_monitor_driver/driverHPESettings.py`
+In order to run it, the following parameters must be added in the
+`trustMonitor/trust_monitor_driver/driverHPESettings.py`
 file, as follows:
 ```
-SWITCH_VERIFIER_PATH = '/hpe/<final name of switchVerifier binary>'
-SWITCH_VER_CONFIG_PATH = '/hpe/<name of configuration file (default config.json)>'
-SWITCH_PCR_PUB_KEY_PATH = '/hpe/<name of pub key for PCR sig. verification>'
-SWITCH_REF_CONFIG_PATH = '/hpe/<name of switch reference configuration>'
+SWITCH_VERIFIER_PATH = '/remote/path/to/<final name of switchVerifier binary>'
+SWITCH_VER_CONFIG_PATH = '/remote/path/to/<name of configuration file (default config.json)>'
+SWITCH_PCR_PUB_KEY_PATH = '/remote/path/to/<name of pub key for PCR sig. verification>'
+SWITCH_REF_CONFIG_PATH = '/remote/path/to/<name of switch reference configuration>'
+SWITCHVER_HOSTNAME = "<hostname of switch verifier host>"
+SWITCHVER_SSH_PORT = "<port of switch verifier host>"
+SWITCHVER_SSH_USER = "<username of switch verifier host>"
+SWITCHVER_SSH_PWD = "<password of switch verifier host>"
 ```
-
-Finally, ensure that the following volume is enabled in the `docker-compose.yml`
-file:
-
-```
-tm_django_app:
-  image: ra/trust_monitor/tm_django_app
-  [...]
-  volumes:
-    [...]
-    - './hpe:/hpe'
-```
-
-In case you want to edit the `hpe` directory path in the host system, edit the
-first part of the volume definition (the second is the path inside of the container).
 
 ## Test the Trust Monitor API
 

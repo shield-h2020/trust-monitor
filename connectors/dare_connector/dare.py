@@ -14,12 +14,13 @@ def attest_result():
     app.logger.debug('In post method of dare_connector/attest_result')
 
     data = request.get_json()
-    app.logger.info('Received a json object')
+    app.logger.debug('Received a json object')
     jsonData = json.dumps(data, ensure_ascii=False)
-    app.logger.info('Send data to DARE: %s' % jsonData)
     url = dare_settings.DARE_BASE_URL
-    app.logger.info(url)
-    response = requests.post(url, data=jsonData)
+    # app.logger.info(url)
+    # TODO: call proper DARE API to store attestation result for audit
+    # response = requests.post(url, data=jsonData)
+    app.logger.info(jsonData)
     jsonResponse = {'Result': 'True'}
     return flask.Response(json.dumps(jsonResponse))
 
@@ -28,7 +29,7 @@ def attest_result():
 def getStatus():
     app.logger.debug('In get method of dare_connector')
     jsonResponse = {'Active': True}
-    app.logger.info(jsonResponse)
+    app.logger.debug(jsonResponse)
     return flask.Response(json.dumps(jsonResponse))
 
 
@@ -37,7 +38,7 @@ if __name__ == '__main__':
                     ' - %(message)s')
     formatter = logging.Formatter(logFormatStr, '%Y-%b-%d %H:%M:%S')
     fileHandler = logging.FileHandler("/logs/dare_connector.log")
-    fileHandler.setLevel(logging.DEBUG)
+    fileHandler.setLevel(logging.INFO)
     fileHandler.setFormatter(formatter)
     app.logger.addHandler(fileHandler)
     app.run(debug=True, host='0.0.0.0')

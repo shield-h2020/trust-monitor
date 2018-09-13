@@ -31,24 +31,30 @@ def store_vnsfs_digests():
     return flask.Response(json.dumps(list_digest))
 
 
-def load_security_manifest_from_store(vnf):
+def load_attestation_data_from_store(vnf):
+    app.logger.debug(
+        'Contact vNSF Store API to retrieve attestation file')
 
-    result = {}
-    if os.path.isfile(str(vnf) + '.yaml'):
+    if os.path.isfile(str(vnf) + '.json'):
         app.logger.debug('Analyze file %s' % str(vnf))
-        stream = file(str(vnf)+'.yaml')
-        result = yaml.load(stream)
+        stream = file(str(vnf)+'.json')
+        data = json.load(stream)
     else:
-        app.logger.debug('Contact vNSF Store API to retrieve security manifest')
         # Compose URL by attaching vnf identifier to base url
-        url = store_settings.STORE_BASE_URL + '/' + str(vnf)
+        url = store_settings.STORE_BASE_URL + str(vnf)
         app.logger.info(url)
-        response = requests.get(url)
+        response = requests.get(url, verify=False)
         logger.debug('Response received from vNSF Store API')
-        result = yaml.load(response.text)
+        data = json.load(response.text)
 
-    logger.info("vNSF Store API response is: " + result)
-    return result
+    app.logger.info(data)
+    digests_list = []
+    for vdu_digest in data["digests"]:
+        for key in vdu_digest.keys():
+            if key != "instance":
+                digests_list.append({key: vdu_digest[key]})
+
+    return digests_list
 
 
 def retrieve_digests_from_store(data):
@@ -58,23 +64,18 @@ def retrieve_digests_from_store(data):
     list_digest = []
     for vnf in data['list_vnf']:
         try:
-            sec_manifest = load_security_manifest_from_store(vnf)
-            values = (sec_manifest['manifest:vnsf']['security_info']['vdu']
-                      [0]['attestation'])
-            if values is not None:
-                app.logger.debug('Measure %s' % str(values))
-                for key, value in values.iteritems():
-                    temp = {key: value}
-                    list_digest.append(temp)
-        except IOError as ioe:
-            json_error = {'Error': 'impossible to find vnf'}
-            app.logger.error(json_error)
-        except yaml.YAMLError, exc:
-            json_error = {'Error in configuration file': exc}
-            app.logger.error(json_error)
+            # sec_manifest = load_security_manifest_from_store(vnf)
+            # values = (sec_manifest['manifest:vnsf']['security_info']['vdu']
+            #           [0]['attestation'])
+            # if values is not None:
+            #     app.logger.debug('Measure %s' % str(values))
+            #     for key, value in values.iteritems():
+            #         temp = {key: value}
+            #         list_digest.append(temp)
+            list_digest = load_attestation_data_from_store(vnf)
         except Exception as e:
             json_error = {'Generic error': e}
-            app.logger.error(json_error)
+            app.logger.error(str(e))
     return list_digest
 
 
@@ -85,6 +86,26 @@ def get_store_running():
     jsonResponse = {'Active': True}
     app.logger.info(jsonResponse)
     return flask.Response(json.dumps(jsonResponse))
+
+# def load_security_manifest_from_store(vnf):
+#
+#     result = {}
+#     if os.path.isfile(str(vnf) + '.yaml'):
+#         app.logger.debug('Analyze file %s' % str(vnf))
+#         stream = file(str(vnf)+'.yaml')
+#         result = yaml.load(stream)
+#     else:
+#         app.logger.debug(
+#             'Contact vNSF Store API to retrieve security manifest')
+#         # Compose URL by attaching vnf identifier to base url
+#         url = store_settings.STORE_BASE_URL + '/' + str(vnf)
+#         app.logger.info(url)
+#         response = requests.get(url)
+#         logger.debug('Response received from vNSF Store API')
+#         result = yaml.load(response.text)
+#
+#     logger.info("vNSF Store API response is: " + result)
+#     return result
 
 
 if __name__ == '__main__':

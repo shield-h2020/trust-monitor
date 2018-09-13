@@ -1,15 +1,33 @@
 import logging
 from driverHPESettings import *
-import subprocess
 import os
 import json
 from trust_monitor.models import Host
 from rest_framework import status
 from trust_monitor.attestation_data import SDNAttestation
 from trust_monitor_driver.driverConstants import *
-
+import paramiko
 
 logger = logging.getLogger('driver')
+
+
+def runSSHCommand(command):
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(
+        SWITCHVER_HOSTNAME,
+        SWITCHVER_SSH_PORT,
+        SWITCHVER_SSH_USER,
+        SWITCHVER_SSH_PWD)
+    stdin, stdout, stderr = client.exec_command(command)
+    output = stdout.read()
+    error = stderr.read()
+    client.close()
+    logger.debug("SSH command output: " + output)
+    if error:
+        logger.error("SSH command error: " + error)
+    return output
 
 
 def runSwitchVerifier(node_address):
@@ -21,20 +39,14 @@ def runSwitchVerifier(node_address):
 
     logger.debug("Running switchVerifier binary")
     # Run switchVerifier -c config.json -k pub.key -conf refconf -json [ip_addr]
-    args = (SWITCH_VERIFIER_PATH,
-            "-c",
-            SWITCH_VER_CONFIG_PATH,
-            "-k",
-            SWITCH_PCR_PUB_KEY_PATH,
-            "-conf",
-            SWITCH_REF_CONFIG_PATH,
-            "-json",
-            node_address)
-
-    logger.debug("SwitchVerifier run with args: " + str(args))
-    popen = subprocess.Popen(args, stdout=subprocess.PIPE)
-    popen.wait()
-    output = popen.stdout.read()
+    command = (SWITCH_VERIFIER_PATH +
+               " -c " + SWITCH_VER_CONFIG_PATH +
+               " -k " + SWITCH_PCR_PUB_KEY_PATH +
+               " -conf " + SWITCH_REF_CONFIG_PATH +
+               " -json " +
+               node_address)
+    logger.debug("SwitchVerifier run with args: " + command)
+    output = runSSHCommand(command)
     logger.debug("SwitchVerifier returned output: " + output)
     return output
 
@@ -69,8 +81,9 @@ class DriverHPE():
         else:
             configured = True
             # Check if switchVerifier exists in local path
-            if os.path.isfile(SWITCH_VERIFIER_PATH):
-                active = True
+
+            runSSHCommand(("pwd"))
+            active = True
 
         return {HPE_DRIVER: {'configuration': configured, 'active': active}}
 

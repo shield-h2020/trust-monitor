@@ -232,6 +232,10 @@ def attest_nodes(node_list):
         # Node list should be in the form of {"node": <name>} objects
         node_list = get_nodes_from_vnsfo()
 
+        # Workaround: switches are not part of the result of VNSFO right now
+        for SDN_component in Host.objects.filter(driver=HPE_DRIVER):
+            node_list.append({"node": SDN_component.hostName})
+
     logger.info('Received attestation request for: ' + str(node_list))
     global_status = AttestationStatus()
     for node in node_list:

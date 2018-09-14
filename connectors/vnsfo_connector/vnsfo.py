@@ -100,9 +100,6 @@ def getVNSFInformationFromVNSFO(list_vim):
                 if data:
                     app.logger.debug('Data: %s added to the list' % data)
                     list_vim_vnf.append(data)
-                else:
-                    app.logger.warning('Data is emply impossible to add '
-                                       'this item to the list')
         app.logger.debug(str(list_vim_vnf))
         return list_vim_vnf
     else:

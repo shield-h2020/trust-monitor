@@ -34,24 +34,31 @@ def listVIMEmuInstances():
         return flask.Response(json.dumps(jsonResponse))
 
     list_vim_docker = get_containers_per_vimemu(list_vim_ip)
+    jsonListVimDocker = []
     if type(list_vim_docker) == dict:
-        return flask.Response(json.dumps(list_vim_docker))
-    app.logger.info('VIM-emu instances: %s' % str(list_vim_docker))
-    jsonResponse = {'VIM': list_vim_ip}
-    return flask.Response(json.dumps(jsonResponse))
+        jsonListVimDocker = [list_vim_docker]
+        app.logger.debug("Single VIM with docker: " + str(list_vim_docker))
+    else:
+        app.logger.info('VIM-emu instances: %s' % str(list_vim_docker))
+        jsonListVimDocker = list_vim_docker
+    return flask.Response(json.dumps(jsonListVimDocker))
 
 
 # start with list of vim with their ip, this method uses this information to
 # define the list of docker in execution for each vim,
-# list_vim_ip = [{'ip', 'xxx.xxx.xxx.xxx', 'uuid': 'uuid_vim', 'vim': 'name'}]
+# list_vim_ip = [{'ip', 'xxx.xxx.xxx.xxx', 'uuid': 'uuid_vim', 'node': 'name'}]
 # return list_vim_ip with docker_id ['id1', 'id2']
 def get_containers_per_vimemu(list_vim_ip):
     app.logger.info('For each vim in the list get Id running docker')
     try:
         for vim in list_vim_ip:
-            app.logger.info('Analyze VIM: ' + vim['vim'] + ' ip: ' + vim['ip'])
-            client = Client(base_url='tcp://'+vim['ip']+':' +
-                            vimemu_settings.VIM_EMU_DOCKER_PORT,
+            app.logger.info('Analyze VIM: ' + vim['node'] + ' ip: ' + vim['ip'])
+
+            docker_server = ('tcp://' + vim['ip'] + ':' +
+                             vimemu_settings.VIM_EMU_DOCKER_PORT)
+
+            app.logger.debug("Docker client connect to : " + docker_server)
+            client = Client(base_url=docker_server,
                             timeout=10)
             app.logger.debug('Connected with vim, now get list docker Id')
             list_containers = []
@@ -65,12 +72,12 @@ def get_containers_per_vimemu(list_vim_ip):
             app.logger.info('Add list containers at VIM')
             vim.update({'docker_id': list_containers})
     except ConnectionError as exc:
-        jsonResponse = {'Error': 'No response, impossible to connect '
-                        'with Docker'}
-        app.logger.error(jsonResponse)
+        jsonResponse = {'Error': "Connection error with VIM-emu"}
+        app.logger.error(str(exc))
         client.close()
         return jsonResponse
     client.close()
+    app.logger.debug(str(list_vim_ip))
     return list_vim_ip
 
 

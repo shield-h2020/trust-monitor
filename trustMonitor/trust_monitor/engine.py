@@ -59,7 +59,7 @@ def get_nodes_from_vnsfo():
     logger.info('Retrieve nodes from vNSFO')
     url_vnsfo_connector = (
         settings.BASIC_URL_VNSFO +
-        '/vnsfo/list_nodes'
+        '/vnsfo_connector/list_nodes'
     )
     return requests.get(url_vnsfo_connector).json()
 
@@ -68,22 +68,11 @@ def get_vimemu_vims(list_info_vim):
     logger.info('Retrieve VIM-emu instances from NFVI')
     url_vimemu_connector = (
         settings.BASIC_URL_VIMEMU +
-        '/vimemu/list_vimemu_instances')
+        '/vimemu_connector/list_vimemu_instances')
 
     return requests.post(
         url_vimemu_connector,
         json=list_info_vim).json()
-
-
-def get_vim_by_ip(ip):
-    logger.info('Retrieve VIM by IP address')
-    url_vnsfo_connector = (
-        settings.BASIC_URL_VNSFO +
-        '/vnsfo/get_vim_by_ip'
-    )
-    return requests.post(
-        url_vnsfo_connector,
-        json={'ip': [ip]}).json()
 
 
 def get_vnsfs_from_vim(vim):
@@ -91,16 +80,28 @@ def get_vnsfs_from_vim(vim):
         logger.info('Get the VNSF instances from VIM: %s' % vim)
         url_vnsfo_connector = (
             settings.BASIC_URL_VNSFO +
-            '/vnsfo/list_vnfs_vim'
+            '/vnsfo_connector/list_vnfs_vim'
         )
         responseJson = requests.post(
-            url_vnsfo_connector).json()
+            url_vnsfo_connector,
+            json={'VIM': [vim]}).json()
         logger.info(responseJson)
         return responseJson
     except ConnectionError as e:
         jsonError = {'Error': 'Impossible to contact VNSFO connector'}
-        logger.error(jsonError)
+        logger.error(str(e))
         return False
+
+
+def get_vim_by_ip(ip):
+    logger.info('Retrieve VIM by IP address')
+    url_vnsfo_connector = (
+        settings.BASIC_URL_VNSFO +
+        '/vnsfo_connector/get_vim_by_ip'
+    )
+    return requests.post(
+        url_vnsfo_connector,
+        json={'ip': [ip]}).json()
 
 
 def get_drivers_status():
@@ -267,31 +268,27 @@ def attest_compute(node):
                     ' should be added')
 
         list_info_vim = get_vim_by_ip(host.address)
-        logger.debug('VIM: ' + str(list_info_vim))
+        logger.debug('VIM information: ' + str(list_info_vim))
 
-        responseJson = get_vimemu_vims(list_info_vim)
+        list_vim_docker = get_vimemu_vims(list_info_vim)
 
-        logger.debug("VIM-emu connector response for VIM: " + str(responseJson))
-
-        list_vim_docker = responseJson['VIM']
-
-        logger.info('The information are %s'
-                    % str(list_vim_docker))
+        logger.debug("VIM-emu connector response for VIM: " +
+                     str(list_vim_docker))
 
         list_docker_id = list_vim_docker[0]['docker_id']
 
         if not list_docker_id:
-            logger.warning('No Docker running in the VIM')
+            logger.warning('No Docker running in the VIM ' +
+                           host.hostName)
             jsonAttest = {'node': host.hostName}
         else:
-            logger.debug('With this docker id: %s'
+            logger.debug('VIM ' + host.hostName + ' runs containers: %s'
                          % str(list_docker_id))
             jsonAttest = {'node': host.hostName, 'vnfs':
                           list_docker_id}
 
-        list_vim_vnf = get_vnsfs_from_vim(list_info_vim[0]['vim'])
-
-        add_container_measures_to_db(list_vim_vnf, list_info_vim)
+        list_vim_vnf = get_vnsfs_from_vim(host.hostName)
+        add_container_measures_to_db(list_vim_docker, list_vim_vnf)
 
     except Exception as e:
         logger.error(str(e))
@@ -310,13 +307,13 @@ def attest_compute(node):
 ###############################################################################
 
 
-def add_container_measures_to_db(list_vim_vnf, list_vim):
-    if list_vim_vnf is False:
+def add_container_measures_to_db(list_vim_docker, list_vim_vnf):
+    if list_vim_docker is False:
         logger.warning('Impossible to get the information of vnfs '
                        'for each vim (list of vNSF is empty)')
-    if isinstance(list_vim_vnf, dict):
+    if isinstance(list_vim_docker, dict):
         list_vnf = []
-        for vim in list_vim_vnf['vim_vnf']:
+        for vim in list_vim_docker['vim_vnf']:
             list_vnf.extend(vim['list_vnf'])
         logger.info('All vnfs are %s' % str(list_vnf))
         list_digest = store_vnsfs_digests(list_vnf)
@@ -328,7 +325,7 @@ def add_container_measures_to_db(list_vim_vnf, list_vim):
                 logger.warning('Impossible to communicate with Redis, '
                                'the measure not are added in DB')
     else:
-        logger.warning('No vnf for vim: '+str(list_vim)+' are in executions')
+        logger.warning('No VNFs for VIM in execution')
 
 
 def store_vnsfs_digests(list_vnf):

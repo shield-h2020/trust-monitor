@@ -3,10 +3,11 @@ from flask import request
 import json
 import logging
 import flask
-from docker import *
+from subprocess import *
 from requests.exceptions import ConnectionError
 import vnsfo_settings
 import requests
+import os
 
 vnsfo_baseurl = vnsfo_settings.VNSFO_BASE_URL
 app = flask.Flask('vnsfo_connector')
@@ -16,80 +17,209 @@ app = flask.Flask('vnsfo_connector')
 def getStatus():
     app.logger.debug('In get method of vnsfo_connector')
     jsonResponse = {'Active': True}
-    app.logger.info(jsonResponse)
+    app.logger.info(str(jsonResponse))
     return flask.Response(json.dumps(jsonResponse))
 
 
 # Get list of VIM with their IP throught vNSFO
 @app.route("/vnsfo_connector/list_nodes", methods=["GET"])
 def list_nodes():
-    # TODO: Implement API call and result translation
-    # app.logger.debug('Get the list of VIMs from vNSFO')
-    # list_nodes = []
-    # jsonResult = getNodeInformationFromVNSFO()
+    app.logger.debug('Get the list of VIMs from vNSFO')
+    listJsonVIMs = getNodeInformationFromVNSFO()
+    app.logger.info(str(listJsonVIMs))
+    return flask.Response(json.dumps(listJsonVIMs))
 
-    # app.logger.info(list_nodes)
-    # return flask.Response(json.dumps(list_nodes))
-    pass
+
+# Retrieve the VIM name from IP
+@app.route("/vnsfo_connector/get_vim_by_ip", methods=["POST"])
+def get_vim_by_ip():
+
+    app.logger.info('Get list VIM by ip')
+    if request.is_json:
+        app.logger.info('Received a json object')
+        data = request.get_json()
+        app.logger.info('The data are: %s' % data)
+    else:
+        jsonResponse = {'Error': 'Accept only json objects'}
+        app.logger.error(jsonResponse)
+        return flask.Response(json.dumps(jsonResponse))
+
+    list_ip = data['ip']
+    jsonVIMResult = getNodeInformationFromVNSFO()
+    app.logger.debug(jsonVIMResult)
+
+    for jsonVIM in jsonVIMResult:
+        app.logger.debug('Analyze VIM with IP %s' % str(jsonVIM["node"]))
+        if jsonVIM['ip'] not in list_ip:
+            app.logger.debug('Remove VIM ' + jsonVIM['node'] + ' from list')
+            jsonVIMResult.remove(jsonVIM)
+
+    return flask.Response(json.dumps(jsonVIMResult))
 
 
 # Get the list of vnfs
 @app.route("/vnsfo_connector/list_vnfs_vim", methods=["POST"])
 def list_vnfs_vim():
-    # TODO: Implement API call and result translation
-    # app.logger.info('Get the list of VNFs from vNSFO')
-    # list_vnf = []
-    # jsonResult = getVNSFInformationFromVNSFO()
-    # jsonResponse = {'vim_vnf': list_vnf}
-    # return flask.Response(json.dumps(jsonResponse))
-    pass
+    app.logger.info('Get the list of VNFs from vNSFO')
+    if request.is_json:
+        app.logger.info('Received a JSON object')
+        req_data = request.get_json()
+        app.logger.info('The data are: %s' % req_data)
+    else:
+        jsonResponse = {'error': 'Accept only json objects'}
+        app.logger.error(jsonResponse)
+        return flask.Response(json.dumps(jsonResponse))
+    app.logger.info('VIM list: %s' % req_data)
 
-
-# started from list of ip of node to get the name of vim with their ip, if the
-# ip are equivalent
-@app.route("/vnsfo_connector/get_vim_by_ip", methods=["POST"])
-def get_vim_by_ip():
-    # TODO: Implement API call and result translation
-    # list_ip = []
-    # app.logger.info('Get list VIM by ip')
-    # if request.is_json:
-    #     app.logger.info('Received a json object')
-    #     data = request.get_json()
-    #     app.logger.info('The data are: %s' % data)
-    # else:
-    #     jsonResponse = {'error': 'Accept only json objects'}
-    #     app.logger.error(jsonResponse)
-    #     return flask.Response(json.dumps(jsonResponse))
-    # list_ip_by_TM = data['ip']
-    # jsonResult = getNodeInformationFromVNSFO()
-    # if isinstance(list_vim_ip, list):
-    #     app.logger.info('The list of vim with their ip is %s'
-    #                     % str(list_vim_ip))
-    #     for vim in list_vim_ip:
-    #         app.logger.debug('Analyze vim %s' % str(vim))
-    #         if vim['ip'] not in list_ip_by_TM:
-    #             app.logger.debug('Remove vim to the list')
-    #             list_vim_ip.remove(vim)
-    # return flask.Response(json.dumps(list_vim_ip))
-    pass
+    list_vim_vnf = getVNSFInformationFromVNSFO(req_data['VIM'])
+    jsonResponse = {'vim_vnf': list_vim_vnf}
+    return flask.Response(json.dumps(jsonResponse))
 
 
 # API call toward vnsfo
-def getVNSFInformationFromVNSFO():
-    url = vnsfo_baseurl + "/vnsf/running"
-    app.logger.info(url)
-    response = requests.get(url)
-    logger.debug('Response received from vNSFO API: ' + response.text)
-    return response.json()
+def getVNSFInformationFromVNSFO(list_vim):
+    # url = vnsfo_baseurl + "/vnsf/running"
+    # app.logger.info(url)
+    # response = requests.get(url)
+    # logger.debug('Response received from vNSFO API: ' + response.text)
+    # return response.json()
+    list_vim_vnf = []
+    bash_ns_osm = "osm ns-list"
+    process_ns_list = Popen(bash_ns_osm.split(),
+                            stdout=PIPE, stderr=PIPE, env=getOSMEnv())
+    output_ns, error = process_ns_list.communicate()
+    if not error:
+        app.logger.info('Start process to get list ns in execution')
+        for line in output_ns.split('\n')[3:-2]:
+            app.logger.debug('Analyze NS: %s' % line)
+            line_split = line.split()
+            if len(line_split) > 1 and line_split[5] == 'running':
+                ns = line_split[1]
+                app.logger.debug('ns_name %s' % ns)
+                data = getVNF(ns, list_vim)
+                if data:
+                    app.logger.debug('Data: %s added to the list' % data)
+                    list_vim_vnf.append(data)
+                else:
+                    app.logger.warning('Data is emply impossible to add '
+                                       'this item to the list')
+        app.logger.debug(str(list_vim_vnf))
+        return list_vim_vnf
+    else:
+        app.logger.error("Impossible to retrieve list of VIMs with VNFs")
+        raise Exception('Error while retrieving list of VIMs with VNFs: ' +
+                        str(error))
+
+
+def getVNF(ns, list_vim):
+    app.logger.info(list_vim)
+    vnfd = False
+    list_vnf = []
+    vim_vnf = {}
+    app.logger.debug('Analyze ns_name %s' % ns)
+    bash_ns_show = "osm ns-show %s" % ns
+    process_ns_show_list = Popen(bash_ns_show.split(),
+                                 stdout=PIPE, stderr=PIPE, env=getOSMEnv())
+    output_ns_show, error = process_ns_show_list.communicate()
+    if not error:
+        for line in output_ns_show.split('\n')[3:-2]:
+            line_split = line.split()
+            if len(line_split) > 1:
+                if line_split[2].find("constituent-vnfd") != -1:
+                    vnfd = True
+                if (vnfd is True
+                   and line_split[2].find("vnfd-id-ref") != -1):
+                    app.logger.debug('vnf name is %s' % line_split[3])
+                    list_vnf.append(line_split[3][1:-1])
+                if (line_split[1].find('rw-nsr:datacenter') != -1
+                   and line_split[3][1:-1] in list_vim):
+                    vim = line_split[3][1:-1]
+                    app.logger.debug('Create dictionary with VIM ' + vim
+                                     + ' and vnfs ' + str(list_vnf))
+                    vim_vnf = {'vim': vim, 'list_vnf': list_vnf}
+    else:
+        app.logger.error('Impossible to connect to vNSFO')
+        jsonResponse = {'Impossible to connect to vNSFO':
+                        error.split('\n')[len(error.split('\n'))-2]}
+        return jsonResponse
+    app.logger.info(vim_vnf)
+    return vim_vnf
 
 
 # API call towards VNSFO
 def getNodeInformationFromVNSFO():
-    url = vnsfo_baseurl + "/nfvi/nodes"
-    app.logger.info(url)
-    response = requests.get(url)
-    logger.debug('Response received from vNSFO API: ' + response.text)
-    return response.json()
+    # url = vnsfo_baseurl + "/nfvi/nodes"
+    # app.logger.info(url)
+    # response = requests.get(url)
+    # logger.debug('Response received from vNSFO API: ' + response.text)
+    # return response.json()
+    bash_vim_osm = "osm vim-list"
+    process_vim_list = Popen(bash_vim_osm.split(),
+                             stdout=PIPE, stderr=PIPE, env=getOSMEnv())
+    output_vim, error = process_vim_list.communicate()
+    list_vim = []
+    list_vim_ip = []
+    if not error:
+        app.logger.info('Start process to get list VIM')
+        for line in output_vim.split('\n')[3:-2]:
+            app.logger.debug('analyze vim: %s' % line)
+            line_split = line.split()
+            if len(line_split) > 1:
+                dict = {'node': line_split[1],
+                        'uuid': line_split[3]}
+                list_vim.append(dict)
+    else:
+        app.logger.error('Impossible to connect vNSFO')
+        jsonResponse = {'Error':
+                        error.split('\n')[len(error.split('\n'))-2]}
+        return jsonResponse
+    if not list_vim:
+        jsonError = {'Error': 'Empty VIM list in vNSFO'}
+        app.logger.error(jsonError)
+        return jsonError
+    for vim in list_vim:
+        app.logger.info('Get IP from: %s' % vim['node'])
+        bash_vim_show = "osm vim-show %s" % vim['node']
+        process_vim_show = Popen(bash_vim_show.split(),
+                                 stdout=PIPE, stderr=PIPE, env=getOSMEnv())
+        output_vim_show, error = process_vim_show.communicate()
+        if not error:
+            app.logger.debug('Get ip address for each vim')
+            for line in output_vim_show.split('\n')[3:-2]:
+                line_split = line.split()
+                if len(line_split) > 1 and line_split[1] == 'vim_url':
+                    vim_url = line_split[3]
+                    app.logger.debug('vim_url: ' + vim_url +
+                                     ' vim: ' + vim['node'])
+                if len(line_split) > 1 and line_split[1] == 'type':
+                    app.logger.debug('type vim ' + vim['node'] + ' ' +
+                                     line_split[3])
+                    if line_split[3].find("openstack"):
+                        if vim_url.find("identity") == -1:
+                            ip = vim_url.split(':')[1][2:]
+                            app.logger.info('IP address '
+                                            + ip + ' for ' + vim['node'])
+                            dict = {'node': vim['node'],
+                                    'uuid': vim['uuid'],
+                                    'ip': ip}
+                            list_vim_ip.append(dict)
+        else:
+            app.logger.error('Impossible to connect to vNSFO')
+            jsonResponse = {'Impossible to connect to vNSFO':
+                            error.split('\n')[len(error.split('\n'))-2]}
+            return jsonResponse
+    if not list_vim_ip:
+        jsonError = {'Error': 'No VIM connected with Open Source Mano'}
+        app.logger.error(jsonError)
+        return jsonError
+    return list_vim_ip
+
+
+def getOSMEnv():
+    osm_env = dict(os.environ)
+    osm_env['OSM_HOSTNAME'] = vnsfo_settings.OSM_IP
+    osm_env['OSM_RO_HOSTNAME'] = vnsfo_settings.OSM_IP
+    return osm_env
 
 
 if __name__ == '__main__':

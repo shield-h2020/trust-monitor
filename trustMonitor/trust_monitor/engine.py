@@ -101,7 +101,7 @@ def get_vim_by_ip(ip):
     )
     return requests.post(
         url_vnsfo_connector,
-        json={'ip': [ip]}).json()
+        json={'vim_ip': ip}).json()
 
 
 def get_drivers_status():

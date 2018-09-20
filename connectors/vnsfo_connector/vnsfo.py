@@ -33,24 +33,21 @@ def list_nodes():
 # Retrieve the VIM name from IP
 @app.route("/vnsfo_connector/get_vim_by_ip", methods=["POST"])
 def get_vim_by_ip():
-
-    app.logger.info('Get list VIM by ip')
     if request.is_json:
-        app.logger.info('Received a json object')
         data = request.get_json()
-        app.logger.info('The data are: %s' % data)
     else:
-        jsonResponse = {'Error': 'Accept only json objects'}
+        jsonResponse = {'Error': 'Missing vim_ip data'}
         app.logger.error(jsonResponse)
         return flask.Response(json.dumps(jsonResponse))
 
-    list_ip = data['ip']
+    vim_ip = data['vim_ip']
+    app.logger.info('Get VIM by ip: ' + vim_ip)
     jsonVIMResult = getNodeInformationFromVNSFO()
     app.logger.debug(jsonVIMResult)
 
     for jsonVIM in jsonVIMResult:
-        app.logger.debug('Analyze VIM with IP %s' % str(jsonVIM["node"]))
-        if jsonVIM['ip'] not in list_ip:
+        app.logger.debug('Analyze VIM %s' % str(jsonVIM["node"]))
+        if jsonVIM['ip'] != vim_ip:
             app.logger.debug('Remove VIM ' + jsonVIM['node'] + ' from list')
             jsonVIMResult.remove(jsonVIM)
 
@@ -60,18 +57,16 @@ def get_vim_by_ip():
 # Get the list of vnfs for a specific VIM
 @app.route("/vnsfo_connector/list_vnfs_vim", methods=["POST"])
 def list_vnfs_vim():
-    app.logger.info('Get the list of VNFs from vNSFO')
     if request.is_json:
-        app.logger.info('Received a JSON object')
         req_data = request.get_json()
-        app.logger.info('The data are: %s' % req_data)
     else:
-        jsonResponse = {'error': 'Accept only json objects'}
+        jsonResponse = {'Error': 'Missing vim_name data'}
         app.logger.error(jsonResponse)
         return flask.Response(json.dumps(jsonResponse))
-    app.logger.info('VIM list: %s' % req_data)
 
     vim_name = req_data['vim_name']
+    app.logger.info('Retrieve VNFs for VIM: %s' % vim_name)
+
     list_vim_vnf = getVNSFInformationFromVNSFO(vim_name)
     return flask.Response(json.dumps(list_vim_vnf))
 

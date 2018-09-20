@@ -67,8 +67,9 @@ class RegisterNode(APIView):
 
         Args:
             json object {'hostName': '', 'address': '',
-                         'distribution': '', 'pcr0': '', 'driver': '',
-                         'analysisType': ''}
+                         'distribution': '', 'driver': ''}
+
+            Argument pcr0 (string) should be specified for OAT driver
         Return:
             - The host created
             - Message Error
@@ -79,10 +80,22 @@ class RegisterNode(APIView):
             serializer = HostSerializer(data=request.data)
             if serializer.is_valid():
                 logger.debug('Serialization of host is valid')
+
+                host = Host.objects.get(address=node.address)
+                if host:
+                    logger.warning(
+                        "Node with IP address " + host.address +
+                        " has been already registered as " + host.hostName)
+                    return Response(
+                        host.hostName,
+                        status=status.HTTP_400_BAD_REQUEST)
+
                 newHost = Host(hostName=request.data["hostName"],
                                address=request.data["address"],
                                driver=request.data['driver'],
                                distribution=request.data['distribution'])
+                if request.data['pcr0']:
+                    newHost.pcr0 = request.data['pcr0']
 
                 register_node(newHost)
                 serializer.save()

@@ -84,7 +84,7 @@ def get_vnsfs_from_vim(vim):
         )
         responseJson = requests.post(
             url_vnsfo_connector,
-            json={'VIM': [vim]}).json()
+            json={'vim_name': vim}).json()
         logger.info(responseJson)
         return responseJson
     except ConnectionError as e:
@@ -233,8 +233,8 @@ def attest_nodes(node_list):
         node_list = get_nodes_from_vnsfo()
 
         # Workaround: switches are not part of the result of VNSFO right now
-        for SDN_component in Host.objects.filter(driver=HPE_DRIVER):
-            node_list.append({"node": SDN_component.hostName})
+        # for SDN_component in Host.objects.filter(driver=HPE_DRIVER):
+        #    node_list.append({"node": SDN_component.hostName})
 
     logger.info('Received attestation request for: ' + str(node_list))
     global_status = AttestationStatus()

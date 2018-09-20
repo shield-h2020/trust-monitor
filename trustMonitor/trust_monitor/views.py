@@ -37,7 +37,7 @@ class RegisterNode(APIView):
         with Trust Monitor.
         Example of use of this method is:
         Call basic-url/register_node without parameters and it
-        return a list of all hosts register to Trust Monitor.
+        returns a list of all hosts registered to Trust Monitor.
 
         Args:
 
@@ -57,10 +57,10 @@ class RegisterNode(APIView):
         The json object is formed by four parameters, all these parameters are
         mandatory.
         The parameters of json object are: distribution, address, hostName and
-        pcr0.
+        driver.
         Distribution define a definition of OS of host.
         hostName is the name of host and address is the IP address associated
-        with the host, pcr0 is the value of first item of TPM of the host.
+        with the host, driver is the attestation driver for the node.
         Example: call basic-url/register_node post
         and include json with the previous values, the result indicates
         if the registration was successful or if there was an error.
@@ -81,21 +81,28 @@ class RegisterNode(APIView):
             if serializer.is_valid():
                 logger.debug('Serialization of host is valid')
 
-                host = Host.objects.get(address=node.address)
-                if host:
+                logger.debug("Check if node is already registered...")
+                host_query = Host.objects.get(address=request.data["address"])
+                if host_query:
                     logger.warning(
-                        "Node with IP address " + host.address +
-                        " has been already registered as " + host.hostName)
-                    return Response(
-                        host.hostName,
-                        status=status.HTTP_400_BAD_REQUEST)
+                        "Node with IP address " + host_query.address +
+                        " already registered as " + host_query.hostName)
+
+                    serialized_host = HostSerializer(host_query, many=False)
+
+                    return Response(serialized_host, status=status.HTTP_200_OK)
+
+                if request.data['pcr0']:
+                    logger.debug("PCR0 specified for new host " + request.data)
+                    pcr0_input = request.data['pcr0']
+                else:
+                    pcr0_input = ""
 
                 newHost = Host(hostName=request.data["hostName"],
                                address=request.data["address"],
                                driver=request.data['driver'],
-                               distribution=request.data['distribution'])
-                if request.data['pcr0']:
-                    newHost.pcr0 = request.data['pcr0']
+                               distribution=request.data['distribution'],
+                               pcr0=pcr0_input)
 
                 register_node(newHost)
                 serializer.save()

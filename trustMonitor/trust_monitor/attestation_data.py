@@ -160,16 +160,16 @@ class HostAttestationExtraInfo():
 
 
 class ContainerAttestation():
-    def __init__(self, container='', trust=True, vnf_id='', vnf_name=''):
+    def __init__(self, container='', trust=True, vnsf_id='', vnsf_name=''):
         self.container = container
         self.trust = trust
-        self.vnf_id = vnf_id
-        self.vnf_name = vnf_name
+        self.vnsf_id = vnsf_id
+        self.vnsf_name = vnsf_name
 
     def json(self):
         return {
-            'vnf_id': self.vnf_id,
-            'vnf_name': self.vnf_name,
+            'vnsf_id': self.vnsf_id,
+            'vnsf_name': self.vnsf_name,
             'container': self.container,
             'trust': self.trust
         }

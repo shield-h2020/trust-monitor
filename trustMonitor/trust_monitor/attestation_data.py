@@ -95,6 +95,7 @@ class HostAttestation():
         self.analysis_containers = analysis_containers
         self.driver = driver
         self.time = self.get_current_time()
+        self.host_remediation = HostAttestationRemediation()
 
     def get_current_time(self):
         return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
@@ -112,6 +113,12 @@ class HostAttestation():
         if isinstance(self.analysis_extra_info, HostAttestationExtraInfo):
             json_extra_info = self.analysis_extra_info.json()
 
+        # Add host remediation
+
+        if not self.trust:
+            self.host_remediation.is_isolate = True
+            self.host_remediation.is_reboot = True
+
         return {
             'node': self.node,
             'trust': self.trust,
@@ -119,7 +126,9 @@ class HostAttestation():
             'status': self.analysis_status,
             'extra_info': json_extra_info,
             'vnsfs': list_json_vnsfs_attest,
-            'driver': self.driver}
+            'driver': self.driver,
+            'remediation': self.host_remediation.json()
+            }
 
 
 class HostAttestationExtraInfo():
@@ -159,17 +168,61 @@ class HostAttestationExtraInfo():
         }
 
 
+class HostAttestationRemediation():
+    def __init__(
+            self,
+            is_isolate=False,
+            is_shutdown=False,
+            is_reboot=False):
+        self.is_isolate = is_isolate
+        self.is_shutdown = is_shutdown
+        self.is_reboot = is_reboot
+
+    def json(self):
+        return {
+            'isolate': self.is_isolate,
+            'shutdown': self.is_shutdown,
+            'reboot': self.is_reboot
+        }
+
+
 class ContainerAttestation():
     def __init__(self, container='', trust=True, vnsf_id='', vnsf_name=''):
         self.container = container
         self.trust = trust
         self.vnsf_id = vnsf_id
         self.vnsf_name = vnsf_name
+        self.container_remediation = ContainerAttestationRemediation()
 
     def json(self):
+
+        # Add container remediation
+        if not self.trust:
+            self.container_remediation.is_isolate = True
+            self.container_remediation.is_shutdown = True
+
         return {
             'vnsf_id': self.vnsf_id,
             'vnsf_name': self.vnsf_name,
             'container': self.container,
-            'trust': self.trust
+            'trust': self.trust,
+            'remediation': self.container_remediation.json()
+        }
+
+
+class ContainerAttestationRemediation():
+    def __init__(
+            self,
+            is_isolate=False,
+            is_shutdown=False,
+            is_reboot=False):
+        self.is_isolate = is_isolate
+        self.is_shutdown = is_shutdown
+        self.is_reboot = is_reboot
+
+    def json(self):
+        return {
+            'isolate': self.is_isolate,
+            'shutdown': self.is_shutdown,
+            'reboot': self.is_reboot
         }

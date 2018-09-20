@@ -215,7 +215,10 @@ class DriverOAT():
                         trust_cont = True
                     container_attestation = ContainerAttestation(
                         container,
-                        trust_cont
+                        trust_cont,
+                        # TODO: missing vnf id and name
+                        "vnf_id",
+                        "vnf_name"
                     )
                     list_container_attestation.append(container_attestation)
 

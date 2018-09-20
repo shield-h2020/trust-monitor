@@ -1,4 +1,4 @@
-import time
+from datetime import datetime
 import logging
 
 logger = logging.getLogger('django')
@@ -12,7 +12,7 @@ class AttestationStatus():
         self.list_sdn_attestation = []
 
     def get_current_time(self):
-        return int(round(time.time()*1000))
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
 
     def getTime(self):
         return self.vtime
@@ -21,7 +21,6 @@ class AttestationStatus():
         return self.trust
 
     def update(self, attestation):
-        self.vtime = self.get_current_time()
         if isinstance(attestation, HostAttestation):
             logger.debug("Update global attestation status with Host info")
             if not attestation.trust:
@@ -38,6 +37,7 @@ class AttestationStatus():
             logger.error(
                 "Impossible to update attestation status (unknown)")
             self.trust = False
+        self.vtime = self.get_current_time()
 
     def json(self):
         # Create list of JSON HostAttestation objects
@@ -94,6 +94,10 @@ class HostAttestation():
         self.analysis_extra_info = analysis_extra_info
         self.analysis_containers = analysis_containers
         self.driver = driver
+        self.time = self.get_current_time()
+
+    def get_current_time(self):
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
 
     def json(self):
 
@@ -111,6 +115,7 @@ class HostAttestation():
         return {
             'node': self.node,
             'trust': self.trust,
+            'time': self.time,
             'status': self.analysis_status,
             'extra_info': json_extra_info,
             'vnsfs': list_json_vnsfs_attest,
@@ -155,12 +160,16 @@ class HostAttestationExtraInfo():
 
 
 class ContainerAttestation():
-    def __init__(self, container='', trust=True):
+    def __init__(self, container='', trust=True, vnf_id='', vnf_name=''):
         self.container = container
         self.trust = trust
+        self.vnf_id = vnf_id
+        self.vnf_name = vnf_name
 
     def json(self):
         return {
+            'vnf_id': self.vnf_id,
+            'vnf_name': self.vnf_name,
             'container': self.container,
             'trust': self.trust
         }

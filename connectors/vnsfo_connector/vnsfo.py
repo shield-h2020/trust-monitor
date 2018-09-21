@@ -42,16 +42,15 @@ def get_vim_by_ip():
 
     vim_ip = data['vim_ip']
     app.logger.info('Get VIM by ip: ' + vim_ip)
-    jsonVIMResult = getNodeInformationFromVNSFO()
-    app.logger.debug(jsonVIMResult)
+    jsonNodes = getNodeInformationFromVNSFO()
+    app.logger.debug(jsonNodes)
 
-    for jsonVIM in jsonVIMResult:
-        app.logger.debug('Analyze VIM %s' % str(jsonVIM["node"]))
-        if jsonVIM['ip'] != vim_ip:
-            app.logger.debug('Remove VIM ' + jsonVIM['node'] + ' from list')
-            jsonVIMResult.remove(jsonVIM)
+    for jsonNode in jsonNodes:
+        app.logger.debug('Analyze node %s' % str(jsonNode["node"]))
+        if jsonNode['ip'] == vim_ip:
+            return flask.Response(json.dumps(jsonNode))
 
-    return flask.Response(json.dumps(jsonVIMResult))
+    return flask.Response({'Error': 'No VIM found with ip_address ' + vim_ip})
 
 
 # Get the list of vnfs for a specific VIM

@@ -64,15 +64,15 @@ def get_nodes_from_vnsfo():
     return requests.get(url_vnsfo_connector).json()
 
 
-def get_vimemu_vims(list_info_vim):
-    logger.info('Retrieve VIM-emu instances from NFVI')
+def get_vimemu_vim(info_vim):
+    logger.info('Retrieve VIM-emu instance from NFVI')
     url_vimemu_connector = (
         settings.BASIC_URL_VIMEMU +
-        '/vimemu_connector/list_vimemu_instances')
+        '/vimemu_connector/get_vimemu_instance')
 
     return requests.post(
         url_vimemu_connector,
-        json=list_info_vim).json()
+        json=info_vim).json()
 
 
 def get_vnsfs_from_vim(vim):
@@ -271,15 +271,15 @@ def attest_compute(node):
         logger.info('Query vNSFO (and VIM-EMU) to see if containers' +
                     ' should be added')
 
-        list_info_vim = get_vim_by_ip(host.address)
-        logger.debug('VIM information: ' + str(list_info_vim))
+        info_vim = get_vim_by_ip(host.address)
+        logger.debug('VIM information: ' + str(info_vim))
 
-        list_vim_docker = get_vimemu_vims(list_info_vim)
+        vim_docker = get_vimemu_vim(info_vim)
 
         logger.debug("VIM-emu connector response for VIM: " +
-                     str(list_vim_docker))
+                     str(vim_docker))
 
-        list_docker_id = list_vim_docker[0]['docker_id']
+        list_docker_id = vim_docker['docker_id']
 
         if not list_docker_id:
             logger.warning('No Docker running in the VIM ' +
@@ -291,8 +291,8 @@ def attest_compute(node):
             jsonAttest = {'node': host.hostName, 'vnfs':
                           list_docker_id}
 
-        list_vim_vnf = get_vnsfs_from_vim(host.hostName)
-        add_container_measures_to_db(list_vim_docker, list_vim_vnf)
+        list_vnf = get_vnsfs_from_vim(host.hostName)
+        add_container_measures_to_db(list_vim_docker, list_vnf)
 
     except Exception as e:
         logger.error(str(e))

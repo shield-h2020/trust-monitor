@@ -54,8 +54,8 @@ def get_vim_by_ip():
 
 
 # Get the list of vnfs for a specific VIM
-@app.route("/vnsfo_connector/list_vnfs_vim", methods=["POST"])
-def list_vnfs_vim():
+@app.route("/vnsfo_connector/list_vnsfs_vim", methods=["POST"])
+def list_vnsfs_vim():
     if request.is_json:
         req_data = request.get_json()
     else:
@@ -87,11 +87,15 @@ def getVNSFInformationFromVNSFO(vim_name):
         for vnsfJson in vnsfsJson:
             if vnsfJson['vim'] == vim_name:
                 vnf_list.append(
-                    {'name': vnsfJson['vnf_name'], 'id': vnsfJson['vnf_id']})
+                    {'name': vnsfJson['vnf_name'], 'id': vnsfJson['vnf_id'],
+                     'ns_name': vnsfJson['ns_name'],
+                     'ns_id': vnsfJson['ns_id']})
     except Exception:
         # single JSON result
         vnf_list.append(
-            {'name': vnsfsJson['vnf_name'], 'id': vnsfsJson['vnf_id']})
+            {'name': vnsfsJson['vnf_name'], 'id': vnsfsJson['vnf_id'],
+             'ns_name': vnsfsJson['ns_name'],
+             'ns_id': vnsfsJson['ns_id']})
 
     return {'node': vim_name, 'list_vnf': vnf_list}
 

@@ -54,16 +54,22 @@ def get_containers_per_vimemu(info_vim):
         list_containers = []
         for container in client.containers():
             if container['State'] == 'running':
-                app.logger.debug('Container Id: %s'
-                                 % container['Id'][0:12])
+                container_info = container['Names'][0].split(".")
+                # Each entry is in the form:
+                # [u'/mn', u'dc1_prova1', u'dummy_vnfd', u'1', u'centos']
+                cont_id = container['Id'][0:12]
+                ns_name = container_info[1][container_info[1].index('_'):]
+                vnfd_name = container_info[2]
+                image = container['Image']
+
                 list_containers.append(
-                    {'id': container['Id'][0:12],
-                        # TODO: get ip address
-                     'address': 'x.x.x.x',
-                     'image': 'example'})
+                    {'id': cont_id,
+                     'image': image,
+                     'ns_name': ns_name,
+                     'vnfd_name': vnfd_name})
 
         if not list_containers:
-            app.logger.warning('No docker running')
+            app.logger.warning('No docker running in VIM ' + info_vim['node'])
         app.logger.info('Add list containers at VIM')
         info_vim.update({'containers': list_containers})
     except ConnectionError as exc:

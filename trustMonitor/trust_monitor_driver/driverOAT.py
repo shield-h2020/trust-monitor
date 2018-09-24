@@ -138,6 +138,11 @@ class DriverOAT():
         logger.debug('Message: ' + str(resp.text))
         return resp
 
+    # {'node': host.hostName, 'vnfs':[
+    # {"container_id": xxx,
+    # "vnfd_name": xxx,
+    # "vnf_id": xxx,
+    # "ns_id": xxx}]
     def pollHost(self, node):
         logger.info('In pollHost method in driverOAT')
         url = (
@@ -153,7 +158,7 @@ class DriverOAT():
             logger.debug('Define list of vnfs for node: '
                          + node['node'])
             for vnf in node['vnfs']:
-                listvnf += vnf + '+'
+                listvnf += vnf['container_id'] + '+'
         except KeyError as keyErr:
             logger.warning('No vnf for node: ' + node['node']
                            + " vnfs set to ''")
@@ -213,14 +218,19 @@ class DriverOAT():
                         trust_cont = False
                     else:
                         trust_cont = True
-                    container_attestation = ContainerAttestation(
-                        container,
-                        trust_cont,
-                        # TODO: missing vnf id and name
-                        "vnf_id",
-                        "vnf_name"
-                    )
-                    list_container_attestation.append(container_attestation)
+
+                    for vnf in node['vnfs']:
+                        # Add to list only containers in the initial vnsf list
+                        if vnf['container_id'] == container:
+                            container_attestation = ContainerAttestation(
+                                container,
+                                trust_cont,
+                                vnf['vnf_id'],
+                                vnf['vnfd_name'],
+                                vnf['ns_id']
+                            )
+                            list_container_attestation.append(
+                                container_attestation)
 
             # Create (and return) the final HostAttestation object
             host_attestation = HostAttestation(

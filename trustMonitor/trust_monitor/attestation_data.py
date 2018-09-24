@@ -187,11 +187,13 @@ class HostAttestationRemediation():
 
 
 class ContainerAttestation():
-    def __init__(self, container='', trust=True, vnsf_id='', vnsf_name=''):
+    def __init__(self, container='', trust=True, vnsf_id='', vnsfd_name='',
+                 ns_id=''):
         self.container = container
         self.trust = trust
         self.vnsf_id = vnsf_id
-        self.vnsf_name = vnsf_name
+        self.vnsfd_name = vnsf_name
+        self.ns_id = ns_id
         self.container_remediation = ContainerAttestationRemediation()
 
     def json(self):
@@ -202,7 +204,8 @@ class ContainerAttestation():
 
         return {
             'vnsf_id': self.vnsf_id,
-            'vnsf_name': self.vnsf_name,
+            'vnsfd_name': self.vnsfd_name,
+            'ns_id': self.ns_id,
             'container': self.container,
             'trust': self.trust,
             'remediation': self.container_remediation.json()

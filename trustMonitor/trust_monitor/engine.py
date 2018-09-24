@@ -322,7 +322,7 @@ def attest_compute(node):
 
 def add_vnfs_measures_to_db(vim_docker, vim_vnf):
     if vim_docker is False:
-        logger.warning('Impossible to get the information of vnfs '
+        logger.warning('Impossible to get the information of vnfs ' +
                        'for each vim (list of vNSF is empty)')
     if isinstance(vim_docker, dict):
         list_vnf = []

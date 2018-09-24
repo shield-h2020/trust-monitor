@@ -371,6 +371,7 @@ class Known_Digest(APIView):
         Example: call basic-url/known_digests delete and include
         json with the previous value, the result indicates if the removed was
         successful or if there was an error.
+        If digest is "all", all additional digests are removed
 
         Args:
             json object {'digest': 'sha1(/usr/bin/test)'}
@@ -378,7 +379,7 @@ class Known_Digest(APIView):
             - The known digest is deleted by the list of digest.
             - Message Error
         """
-        logger.info('Call delete method of KnownDigest to removed a '
+        logger.info('Call delete method of KnownDigest to remove a '
                     'digest')
         logger.info(request.data)
         serializer = DigestRemoved(data=request.data)
@@ -386,16 +387,27 @@ class Known_Digest(APIView):
             logger.debug('Serialization of digest is valid')
             logger.info('See if the digest already exists in db')
             try:
-                digest_found = KnownDigest.objects.get(
-                    digest=serializer.data['digest'])
-                logger.info('Removed known digest %s %s',
-                            digest_found.pathFile, digest_found.digest)
-                DigestListUpdater.remove_known_digest(digest_found.digest)
-                digest_found.delete()
-                logger.info("Digest %s removed from django db",
-                            digest_found.digest)
-                jsonMessage = {'Digest %s' % digest_found.digest: 'removed'}
-                return Response(jsonMessage, status=status.HTTP_200_OK)
+                digest_name = serializer.data['digest']
+
+                if digest_name == "all":
+                    logger.info("Removing all additional digests from TM")
+                    for known_digest in KnownDigest.objects.all():
+                        DigestListUpdater.remove_known_digest(
+                            known_digest.digest)
+                        known_digest.delete()
+                    return Response({}, status=status.HTTP_200_OK)
+
+                else:
+                    digest_found = KnownDigest.objects.get(
+                        digest=digest_name)
+                    logger.info('Removed known digest %s %s',
+                                digest_found.pathFile, digest_found.digest)
+                    DigestListUpdater.remove_known_digest(digest_found.digest)
+                    digest_found.delete()
+                    logger.info("Digest %s removed from django db",
+                                digest_found.digest)
+                    jsonMessage = {'Digest %s' % digest_found.digest: 'removed'}
+                    return Response(jsonMessage, status=status.HTTP_200_OK)
             except ObjectDoesNotExist as objDoesNotExist:
                 logger.info('Digest not found in database')
                 jsonMessage = {'Digest %s' % request.data['digest']:

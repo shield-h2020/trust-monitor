@@ -172,17 +172,17 @@ class HostAttestationRemediation():
     def __init__(
             self,
             is_isolate=False,
-            is_shutdown=False,
+            is_update=False,
             is_reboot=False):
         self.is_isolate = is_isolate
-        self.is_shutdown = is_shutdown
+        self.is_update = is_update
         self.is_reboot = is_reboot
 
     def json(self):
         return {
             'isolate': self.is_isolate,
-            'shutdown': self.is_shutdown,
-            'reboot': self.is_reboot
+            'reboot': self.is_reboot,
+            'update': self.is_update
         }
 
 
@@ -199,7 +199,6 @@ class ContainerAttestation():
         # Add container remediation
         if not self.trust:
             self.container_remediation.is_isolate = True
-            self.container_remediation.is_shutdown = True
 
         return {
             'vnsf_id': self.vnsf_id,
@@ -214,15 +213,15 @@ class ContainerAttestationRemediation():
     def __init__(
             self,
             is_isolate=False,
-            is_shutdown=False,
+            is_update=False,
             is_reboot=False):
         self.is_isolate = is_isolate
-        self.is_shutdown = is_shutdown
+        self.is_update = is_update
         self.is_reboot = is_reboot
 
     def json(self):
         return {
             'isolate': self.is_isolate,
-            'shutdown': self.is_shutdown,
+            'update': self.is_update,
             'reboot': self.is_reboot
         }

@@ -80,7 +80,7 @@ def get_vnsfs_from_vim(vim):
         logger.info('Get the VNSF instances from VIM: %s' % vim)
         url_vnsfo_connector = (
             settings.BASIC_URL_VNSFO +
-            '/vnsfo_connector/list_vnfs_vim'
+            '/vnsfo_connector/list_vnsfs_vim'
         )
         responseJson = requests.post(
             url_vnsfo_connector,
@@ -267,6 +267,8 @@ def attest_compute(node):
     host = Host.objects.get(hostName=node['node'])
     logger.debug('Node found with ip %s' % host.address)
 
+    vim_docker = {}
+    vim_vnf = {}
     try:
         logger.info('Query vNSFO (and VIM-EMU) to see if containers' +
                     ' should be added')
@@ -276,7 +278,8 @@ def attest_compute(node):
 
         # {'ip', 'xxx.xxx.xxx.xxx', 'uuid': 'uuid_vim', 'node': 'name',
         # 'containers':
-        # [{'id': '121238123', 'address': '172.0.1.3', 'image':'xxx'}]}
+        # [{'id': '121238123', 'vnfd_name': 'xxxx', 'ns_name': 'xxxx',
+        # 'image':'xxx'}]}
         vim_docker = get_vimemu_vim(info_vim)
 
         logger.debug("VIM-emu connector response for VIM: " +
@@ -298,7 +301,10 @@ def attest_compute(node):
                           list_docker_id}
 
         # {'node': 'name',
-        # 'list_vnf': [{'name': 'vnf_name', 'id': 'vnf_id}]}
+        # 'list_vnf': [
+        # {'name': vnsfsJson['vnf_name'], 'id': vnsfsJson['vnf_id'],
+        # 'ns_name': vnsfsJson['ns_name'],
+        # 'ns_id': vnsfsJson['ns_id']}]
         vim_vnf = get_vnsfs_from_vim(host.hostName)
 
         add_vnfs_measures_to_db(vim_docker, vim_vnf)
@@ -310,17 +316,28 @@ def attest_compute(node):
         jsonAttest = {'node': host.hostName}
 
     if host.driver == CIT_DRIVER:
-        return DriverCIT().pollHost(jsonAttest)
+        result = DriverCIT().pollHost(jsonAttest)
     elif host.driver == OAT_DRIVER:
-        return DriverOAT().pollHost(jsonAttest)
+        result = DriverOAT().pollHost(jsonAttest)
 
+    if 'vnfs' in jsonAttest:
+        # One or more VNFs have been attested for the compute node
+        remove_vnfs_measures_from_db(vim_docker, vim_vnf)
+
+    return result
 
 ###############################################################################
 # Interaction with Redis database (for known digests)
 ###############################################################################
 
 
+def remove_vnfs_measures_from_db(vim_docker, vim_vnf):
+    logger.info("Removing VNF entries from whitelist data")
+    pass
+
+
 def add_vnfs_measures_to_db(vim_docker, vim_vnf):
+    logger.info("Including VNF entries in whitelist data")
     if vim_docker is False:
         logger.warning('Impossible to get the information of vnfs ' +
                        'for each vim (list of vNSF is empty)')

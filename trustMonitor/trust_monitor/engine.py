@@ -274,12 +274,18 @@ def attest_compute(node):
         info_vim = get_vim_by_ip(host.address)
         logger.debug('VIM information: ' + str(info_vim))
 
+        # {'ip', 'xxx.xxx.xxx.xxx', 'uuid': 'uuid_vim', 'node': 'name',
+        # 'containers':
+        # [{'id': '121238123', 'address': '172.0.1.3', 'image':'xxx'}]}
         vim_docker = get_vimemu_vim(info_vim)
 
         logger.debug("VIM-emu connector response for VIM: " +
                      str(vim_docker))
 
-        list_docker_id = vim_docker['docker_id']
+        list_docker_id = []
+        if vim_docker['containers']:
+            for container in vim_docker['containers']:
+                list_docker_id.append(container['id'])
 
         if not list_docker_id:
             logger.warning('No Docker running in the VIM ' +
@@ -291,8 +297,11 @@ def attest_compute(node):
             jsonAttest = {'node': host.hostName, 'vnfs':
                           list_docker_id}
 
-        list_vnf = get_vnsfs_from_vim(host.hostName)
-        add_container_measures_to_db(list_vim_docker, list_vnf)
+        # {'node': 'name',
+        # 'list_vnf': [{'name': 'vnf_name', 'id': 'vnf_id}]}
+        vim_vnf = get_vnsfs_from_vim(host.hostName)
+
+        add_vnfs_measures_to_db(vim_docker, vim_vnf)
 
     except Exception as e:
         logger.error(str(e))
@@ -311,16 +320,16 @@ def attest_compute(node):
 ###############################################################################
 
 
-def add_container_measures_to_db(list_vim_docker, list_vim_vnf):
-    if list_vim_docker is False:
+def add_vnfs_measures_to_db(vim_docker, vim_vnf):
+    if vim_docker is False:
         logger.warning('Impossible to get the information of vnfs '
                        'for each vim (list of vNSF is empty)')
-    if isinstance(list_vim_docker, dict):
+    if isinstance(vim_docker, dict):
         list_vnf = []
         for vim in list_vim_docker['vim_vnf']:
             list_vnf.extend(vim['list_vnf'])
         logger.info('All vnfs are %s' % str(list_vnf))
-        list_digest = store_vnsfs_digests(list_vnf)
+        list_digest = get_vnsfs_digests(list_vnf)
         if list_digest is False:
             logger.warning('Impossible to obtain the list of digest')
         if list_digest:
@@ -332,7 +341,7 @@ def add_container_measures_to_db(list_vim_docker, list_vim_vnf):
         logger.warning('No VNFs for VIM in execution')
 
 
-def store_vnsfs_digests(list_vnf):
+def get_vnsfs_digests(list_vnf):
     try:
         logger.info('Call method of store_connector to get the digests of '
                     'vnfs')

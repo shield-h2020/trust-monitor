@@ -31,8 +31,8 @@ def get_vimemu_instance():
         app.logger.error(jsonResponse)
         return flask.Response(json.dumps(jsonResponse))
 
-    vim_dockers = get_containers_per_vimemu(info_vim)
-    return flask.Response(json.dumps(vim_dockers))
+    info_vim = get_containers_per_vimemu(info_vim)
+    return flask.Response(json.dumps(info_vim))
 
 
 # start with vim with its ip, this method uses this information to
@@ -56,11 +56,16 @@ def get_containers_per_vimemu(info_vim):
             if container['State'] == 'running':
                 app.logger.debug('Container Id: %s'
                                  % container['Id'][0:12])
-                list_containers.append(container['Id'][0:12])
+                list_containers.append(
+                    {'id': container['Id'][0:12],
+                        # TODO: get ip address
+                     'address': 'x.x.x.x',
+                     'image': 'example'})
+
         if not list_containers:
             app.logger.warning('No docker running')
         app.logger.info('Add list containers at VIM')
-        info_vim.update({'docker_id': list_containers})
+        info_vim.update({'containers': list_containers})
     except ConnectionError as exc:
         jsonResponse = {'Error': "Connection error with VIM-emu"}
         app.logger.error(str(exc))

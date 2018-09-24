@@ -91,7 +91,7 @@ def getVNSFInformationFromVNSFO(vim_name):
             vnf_list.append(
                 {'name': vnsfJson['vnf_name'], 'id': vnsfJson['vnf_id']})
 
-    return {'vim': vim_name, 'list_vnf': vnf_list}
+    return {'node': vim_name, 'list_vnf': vnf_list}
 
     # bash_ns_osm = "osm ns-list"
     # process_ns_list = Popen(bash_ns_osm.split(),

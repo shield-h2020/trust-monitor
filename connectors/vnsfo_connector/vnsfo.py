@@ -82,20 +82,19 @@ def getVNSFInformationFromVNSFO(vim_name):
     vnsfsJson = response.json()
     vnf_list = []
 
-    try:
-        # for each running VNF, verify if it belongs to this VIM
-        for vnsfJson in vnsfsJson:
-            if vnsfJson['vim'] == vim_name:
-                vnf_list.append(
-                    {'name': vnsfJson['vnf_name'], 'id': vnsfJson['vnf_id'],
-                     'ns_name': vnsfJson['ns_name'],
-                     'ns_id': vnsfJson['ns_id']})
-    except Exception:
-        # single JSON result
-        vnf_list.append(
-            {'name': vnsfsJson['vnf_name'], 'id': vnsfsJson['vnf_id'],
-             'ns_name': vnsfsJson['ns_name'],
-             'ns_id': vnsfsJson['ns_id']})
+    # for each running VNF, verify if it belongs to this VIM
+    for vnsfJson in vnsfsJson["vnsf"]:
+        if vnsfJson['vim'] == vim_name:
+            # each VNF name is in the form:
+            # "<ns_instance_name>__<vnfd_name>__<number>"
+            ns_name = vnsfJson['ns_name']
+            vnf_name = vnsfJson['vnf_name']
+            vnfd_name = vnf_name.split('__')[1]
+            vnf_list.append(
+                {'vnf_name': vnsfJson['vnf_name'], 'vnf_id': vnsfJson['vnf_id'],
+                 'vnfd_name': vnfd_name,
+                 'ns_name': ns_name,
+                 'ns_id': vnsfJson['ns_id']})
 
     return {'node': vim_name, 'list_vnf': vnf_list}
 

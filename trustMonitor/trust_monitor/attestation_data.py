@@ -12,7 +12,7 @@ class AttestationStatus():
         self.list_sdn_attestation = []
 
     def get_current_time(self):
-        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     def getTime(self):
         return self.vtime
@@ -98,7 +98,7 @@ class HostAttestation():
         self.host_remediation = HostAttestationRemediation()
 
     def get_current_time(self):
-        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     def json(self):
 

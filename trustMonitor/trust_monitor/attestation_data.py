@@ -23,8 +23,13 @@ class AttestationStatus():
     def update(self, attestation):
         if isinstance(attestation, HostAttestation):
             logger.debug("Update global attestation status with Host info")
+            if attestation.analysis_containers:
+                for container_attestation in attestation.analysis_containers:
+                    if not container_attestation.trust:
+                        logger.debug("Trust status is False (container)")
+                        self.trust = False
             if not attestation.trust:
-                logger.debug("Trust status changed to False")
+                logger.debug("Trust status is False (host)")
                 self.trust = False
             self.list_host_attestation.append(attestation)
         elif isinstance(attestation, SDNAttestation):
@@ -192,7 +197,7 @@ class ContainerAttestation():
         self.container = container
         self.trust = trust
         self.vnsf_id = vnsf_id
-        self.vnsfd_name = vnsf_name
+        self.vnsfd_name = vnsfd_name
         self.ns_id = ns_id
         self.container_remediation = ContainerAttestationRemediation()
 

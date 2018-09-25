@@ -37,9 +37,8 @@ def get_vnsfs_digests_from_store(list_vnfd):
         responseJson = requests.post(urlStore, json=jsonListVnf).json()
         logger.info('Response is %s' % responseJson)
         return responseJson
-    except ConnectionError as e:
-        jsonError = {'Error': 'Impossible contact to store connector'}
-        logger.error(jsonError)
+    except Exception as e:
+        logger.error(str(e))
         return False
 
 
@@ -372,9 +371,9 @@ def add_vnfs_measures_to_db(list_vnf_containers):
 
     list_vnfd = []
     for vnf in list_vnf_containers:
-        list_vnfd.extend(vnf["vnfd_name"])
+        list_vnfd.append(vnf["vnfd_name"])
 
-    logger.info('All vnfds are %s' % str(list_vnfd))
+    logger.info('All VNFDs are %s' % str(list_vnfd))
     list_digest = get_vnsfs_digests_from_store(list_vnfd)
     if list_digest is False:
         logger.warning('Impossible to obtain the list of digest')

@@ -58,8 +58,8 @@ def get_containers_per_vimemu(info_vim):
                 # Each entry is in the form:
                 # [u'/mn', u'dc1_prova1', u'dummy_vnfd', u'1', u'centos']
                 cont_id = container['Id'][0:12]
-                ns_name = container_info[1][container_info[1].index('_'):]
-                vnfd_name = container_info[2]
+                ns_name = container_info[1][container_info[1].index('_')+1:]
+                vnfd_name = container_info[2].split('__')[0]
                 image = container['Image']
 
                 list_containers.append(

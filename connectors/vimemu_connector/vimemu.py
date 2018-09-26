@@ -54,13 +54,27 @@ def get_containers_per_vimemu(info_vim):
         list_containers = []
         for container in client.containers():
             if container['State'] == 'running':
-                container_info = container['Names'][0].split(".")
-                # Each entry is in the form:
-                # [u'/mn', u'dc1_prova1', u'dummy_vnfd', u'1', u'centos']
                 cont_id = container['Id'][0:12]
-                ns_name = container_info[1][container_info[1].index('_')+1:]
-                vnfd_name = container_info[2].split('__')[0]
                 image = container['Image']
+                # in OSM r2: mn.dc1_docker_test.docker_monitor_vnfd__1.a
+                # in OSM r4: mn.dc1_docker_test_3-1-docker_monitor_vdu-1
+                ns_name = ''
+                vnfd_name = ''
+                if len(container['Names'][0].split(".")) == 4:
+                    # OSM r2
+                    app.logger.debug("OSM release 2: " + str(cont_id))
+                    container_info = container['Names'][0].split(".")
+                    ns_name = container_info[1][container_info[1].index('_')+1:]
+                    vnfd_name = container_info[2].split('__')[0]
+                elif len(container['Names'][0].split("-")) == 4:
+                    # OSM r4
+                    app.logger.debug("OSM release 4: " + str(cont_id))
+                    container_info = container['Names'][0].split("-")
+                    ns_name = container_info[0][container_info[0].index('_')+1:]
+                    vnfd_name = container_info[2].replace('vdu', 'vnfd')
+                else:
+                    raise Exception('Unknown format for container ' + cont_id +
+                                    ' in VIM: ' + info_vim['node'])
 
                 list_containers.append(
                     {'id': cont_id,

@@ -7,6 +7,18 @@ import argparse
 
 
 def main():
+
+    logFormatStr = (' %(levelname)s [%(asctime)s] %(module)s'
+                    ' - %(message)s')
+    formatter = logging.Formatter(logFormatStr, '%Y-%b-%d %H:%M:%S')
+    fileHandler = logging.FileHandler("/logs/subprocess_oat.log")
+    fileHandler.setFormatter(formatter)
+    logger = logging.getLogger('default')
+    logger.setLevel(level=logging.DEBUG)
+    logger.addHandler(fileHandler)
+    from os import sys, path
+    sys.path.append(path.abspath(path.join(path.dirname(__file__), '..')))
+    logger.debug(sys.path)
     from trust_monitor_driver.informationDigest import InformationDigest
     from trust_monitor.verifier.ra_verifier import RaVerifier
     from trust_monitor_driver.parsingOAT import ParsingOAT
@@ -70,15 +82,4 @@ def main():
 
 
 if __name__ == "__main__":
-    logFormatStr = (' %(levelname)s [%(asctime)s] %(module)s'
-                    ' - %(message)s')
-    formatter = logging.Formatter(logFormatStr, '%Y-%b-%d %H:%M:%S')
-    fileHandler = logging.FileHandler("/logs/subprocess_oat.log")
-    fileHandler.setFormatter(formatter)
-    logger = logging.getLogger('default')
-    logger.setLevel(level=logging.DEBUG)
-    logger.addHandler(fileHandler)
-    from os import sys, path
-    sys.path.append(path.abspath(path.join(path.dirname(__file__), '..')))
-    logger.debug(sys.path)
     main()

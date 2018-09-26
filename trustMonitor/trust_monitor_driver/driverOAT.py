@@ -148,7 +148,9 @@ class DriverOAT():
         # first, the node with containers is attested
         logger.info("Verify node with containers")
         result = self.pollHostOAT(node)
+        logger.info("Node verified.")
         containers_trust = True
+        host_digests_untrusted = False
         # check if any containers are untrusted
         if result.analysis_containers:
             logger.info("Check individual container trust level")
@@ -156,18 +158,20 @@ class DriverOAT():
                 if not container_attestation.trust:
                     containers_trust = False
                     logger.info("Container trust level false")
-        # if so, check if any binaries in the host are untrusted
-        host_digests_untrusted = False
-        for digest in result.analysis_extra_info.digest_list_not_found:
-            if digest['instance'] == 'host':
-                host_digests_untrusted = True
-        for digest in result.analysis_extra_info.digest_list_fake_lib:
-            if digest['instance'] == 'host':
-                host_digests_untrusted = True
-        # if none are untrusted, query the host trust level to ensure that
-        # other PCRs are still correct
-        if host_digests_untrusted:
-            logger.info("One or more digests in host found untrusted")
+
+            # if so, check if any binaries in the host are untrusted
+            if not containers_trust:
+                for digest in result.analysis_extra_info.digest_list_not_found:
+                    if digest['instance'] == 'host':
+                        host_digests_untrusted = True
+                for digest in result.analysis_extra_info.digest_list_fake_lib:
+                    if digest['instance'] == 'host':
+                        host_digests_untrusted = True
+
+            if host_digests_untrusted:
+                logger.info("One or more digests in host found untrusted")
+        # if no host binaries are untrusted, query the host trust level to
+        # ensure that other PCRs are still correct
         if not containers_trust and not host_digests_untrusted:
             logger.info("Verify host trust level only")
             node.pop('vnfs', None)

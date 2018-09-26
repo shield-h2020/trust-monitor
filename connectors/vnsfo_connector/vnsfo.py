@@ -3,10 +3,11 @@ from flask import request
 import json
 import logging
 import flask
-from docker import *
+from subprocess import *
 from requests.exceptions import ConnectionError
 import vnsfo_settings
 import requests
+import os
 
 vnsfo_baseurl = vnsfo_settings.VNSFO_BASE_URL
 app = flask.Flask('vnsfo_connector')
@@ -16,80 +17,117 @@ app = flask.Flask('vnsfo_connector')
 def getStatus():
     app.logger.debug('In get method of vnsfo_connector')
     jsonResponse = {'Active': True}
-    app.logger.info(jsonResponse)
+    app.logger.info(str(jsonResponse))
     return flask.Response(json.dumps(jsonResponse))
 
 
-# Get list of VIM with their IP throught vNSFO
+# Get list of Nodes (compute, switches) with their IP throught vNSFO
 @app.route("/vnsfo_connector/list_nodes", methods=["GET"])
 def list_nodes():
-    # TODO: Implement API call and result translation
-    # app.logger.debug('Get the list of VIMs from vNSFO')
-    # list_nodes = []
-    # jsonResult = getNodeInformationFromVNSFO()
-
-    # app.logger.info(list_nodes)
-    # return flask.Response(json.dumps(list_nodes))
-    pass
+    app.logger.debug('Get the list of nodes from vNSFO')
+    listJsonNodes = getNodeInformationFromVNSFO()
+    app.logger.info(str(listJsonNodes))
+    return flask.Response(json.dumps(listJsonNodes))
 
 
-# Get the list of vnfs
-@app.route("/vnsfo_connector/list_vnfs_vim", methods=["POST"])
-def list_vnfs_vim():
-    # TODO: Implement API call and result translation
-    # app.logger.info('Get the list of VNFs from vNSFO')
-    # list_vnf = []
-    # jsonResult = getVNSFInformationFromVNSFO()
-    # jsonResponse = {'vim_vnf': list_vnf}
-    # return flask.Response(json.dumps(jsonResponse))
-    pass
-
-
-# started from list of ip of node to get the name of vim with their ip, if the
-# ip are equivalent
+# Retrieve the VIM name from IP
 @app.route("/vnsfo_connector/get_vim_by_ip", methods=["POST"])
 def get_vim_by_ip():
-    # TODO: Implement API call and result translation
-    # list_ip = []
-    # app.logger.info('Get list VIM by ip')
-    # if request.is_json:
-    #     app.logger.info('Received a json object')
-    #     data = request.get_json()
-    #     app.logger.info('The data are: %s' % data)
-    # else:
-    #     jsonResponse = {'error': 'Accept only json objects'}
-    #     app.logger.error(jsonResponse)
-    #     return flask.Response(json.dumps(jsonResponse))
-    # list_ip_by_TM = data['ip']
-    # jsonResult = getNodeInformationFromVNSFO()
-    # if isinstance(list_vim_ip, list):
-    #     app.logger.info('The list of vim with their ip is %s'
-    #                     % str(list_vim_ip))
-    #     for vim in list_vim_ip:
-    #         app.logger.debug('Analyze vim %s' % str(vim))
-    #         if vim['ip'] not in list_ip_by_TM:
-    #             app.logger.debug('Remove vim to the list')
-    #             list_vim_ip.remove(vim)
-    # return flask.Response(json.dumps(list_vim_ip))
-    pass
+    if request.is_json:
+        data = request.get_json()
+    else:
+        jsonResponse = {'Error': 'Missing vim_ip data'}
+        app.logger.error(jsonResponse)
+        return flask.Response(json.dumps(jsonResponse))
+
+    vim_ip = data['vim_ip']
+    app.logger.info('Get VIM by ip: ' + vim_ip)
+    jsonNodes = getNodeInformationFromVNSFO()
+    app.logger.debug(jsonNodes)
+
+    for jsonNode in jsonNodes:
+        app.logger.debug('Analyze node %s' % str(jsonNode["node"]))
+        if jsonNode['ip'] == vim_ip:
+            return flask.Response(json.dumps(jsonNode))
+
+    return flask.Response({'Error': 'No VIM found with ip_address ' + vim_ip})
+
+
+# Get the list of vnfs for a specific VIM
+@app.route("/vnsfo_connector/list_vnsfs_vim", methods=["POST"])
+def list_vnsfs_vim():
+    if request.is_json:
+        req_data = request.get_json()
+    else:
+        jsonResponse = {'Error': 'Missing vim_name data'}
+        app.logger.error(jsonResponse)
+        return flask.Response(json.dumps(jsonResponse))
+
+    vim_name = req_data['vim_name']
+    app.logger.info('Retrieve VNFs for VIM: %s' % vim_name)
+
+    list_vim_vnf = getVNSFInformationFromVNSFO(vim_name)
+    return flask.Response(json.dumps(list_vim_vnf))
 
 
 # API call toward vnsfo
-def getVNSFInformationFromVNSFO():
+# get list of running vnf for a specific VIM
+# returns a list of objects:
+# {'vim': <host_name>, 'list_vnf': [{'name': 'vnf_name', 'id': 'vnf_id}]}
+def getVNSFInformationFromVNSFO(vim_name):
     url = vnsfo_baseurl + "/vnsf/running"
     app.logger.info(url)
-    response = requests.get(url)
-    logger.debug('Response received from vNSFO API: ' + response.text)
-    return response.json()
+    response = requests.get(url, verify=False)
+    app.logger.debug('Response received from vNSFO API: ' + response.text)
+    vnsfsJson = response.json()
+    vnf_list = []
+
+    # for each running VNF, verify if it belongs to this VIM
+    for vnsfJson in vnsfsJson["vnsf"]:
+        if (vnsfJson['vim'] == vim_name
+                and vnsfJson['operational_status'] == 'running'):
+            # each VNF name is in the form:
+            # "<ns_instance_name>__<vnfd_name>__<number>"
+            ns_name = vnsfJson['ns_name']
+            vnf_name = vnsfJson['vnf_name']
+            vnfd_name = vnf_name.split('__')[1]
+            vnf_list.append(
+                {'vnf_name': vnsfJson['vnf_name'],
+                 'vnf_id': vnsfJson['vnf_id'],
+                 'vnfd_name': vnfd_name,
+                 'ns_name': ns_name,
+                 'ns_id': vnsfJson['ns_id']})
+
+    return {'node': vim_name, 'list_vnf': vnf_list}
 
 
 # API call towards VNSFO
+# returns a list of objects: {'node': <node>, 'uuid': <uuid>, 'ip': <ip>}
 def getNodeInformationFromVNSFO():
-    url = vnsfo_baseurl + "/nfvi/nodes"
+    url = vnsfo_baseurl + "/node"
     app.logger.info(url)
-    response = requests.get(url)
-    logger.debug('Response received from vNSFO API: ' + response.text)
-    return response.json()
+    response = requests.get(url, verify=False)
+    app.logger.debug('Response received from vNSFO API: ' + response.text)
+    nodesJson = response.json()
+    list_vim_ip = []
+    try:
+        for nodeJson in nodesJson:
+            dict = {'node': nodeJson['host_name'],
+                    'uuid': nodeJson['node_id'],
+                    'ip': nodeJson['ip_address']}
+            list_vim_ip.append(dict)
+
+    except Exception:
+        # single result, JSON dict
+        list_vim_ip.append(
+            {'node': nodesJson['host_name'],
+             'uuid': nodesJson['node_id'],
+             'ip': nodesJson['ip_address']})
+
+    if not list_vim_ip:
+        app.logger.warning("No nodes detected from VNSFO")
+
+    return list_vim_ip
 
 
 if __name__ == '__main__':

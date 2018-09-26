@@ -27,6 +27,21 @@ logger = logging.getLogger('django')
 ###############################################################################
 
 
+def get_vnsfs_digests_from_store(list_vnfd):
+    try:
+        logger.info('Call method of store_connector to get the digests of '
+                    'vnfs')
+        urlStore = (settings.BASIC_URL_STORE +
+                    '/store_connector/get_vnsfs_digests')
+        jsonListVnf = {'list_vnfd': list_vnfd}
+        responseJson = requests.post(urlStore, json=jsonListVnf).json()
+        logger.info('Response is %s' % responseJson)
+        return responseJson
+    except Exception as e:
+        logger.error(str(e))
+        return False
+
+
 def send_notification_dare(jsonResult):
     logger.info('Send attestation result to DARE connector')
     # send attestation result to DARE_connector
@@ -59,31 +74,20 @@ def get_nodes_from_vnsfo():
     logger.info('Retrieve nodes from vNSFO')
     url_vnsfo_connector = (
         settings.BASIC_URL_VNSFO +
-        '/vnsfo/list_nodes'
+        '/vnsfo_connector/list_nodes'
     )
     return requests.get(url_vnsfo_connector).json()
 
 
-def get_vimemu_vims(list_info_vim):
-    logger.info('Retrieve VIM-emu instances from NFVI')
+def get_vimemu_vim(info_vim):
+    logger.info('Retrieve VIM-emu instance from NFVI')
     url_vimemu_connector = (
         settings.BASIC_URL_VIMEMU +
-        '/vimemu/list_vimemu_instances')
+        '/vimemu_connector/get_vimemu_instance')
 
     return requests.post(
         url_vimemu_connector,
-        json=list_info_vim).json()
-
-
-def get_vim_by_ip(ip):
-    logger.info('Retrieve VIM by IP address')
-    url_vnsfo_connector = (
-        settings.BASIC_URL_VNSFO +
-        '/vnsfo/get_vim_by_ip'
-    )
-    return requests.post(
-        url_vnsfo_connector,
-        json={'ip': [ip]}).json()
+        json=info_vim).json()
 
 
 def get_vnsfs_from_vim(vim):
@@ -91,16 +95,28 @@ def get_vnsfs_from_vim(vim):
         logger.info('Get the VNSF instances from VIM: %s' % vim)
         url_vnsfo_connector = (
             settings.BASIC_URL_VNSFO +
-            '/vnsfo/list_vnfs_vim'
+            '/vnsfo_connector/list_vnsfs_vim'
         )
         responseJson = requests.post(
-            url_vnsfo_connector).json()
+            url_vnsfo_connector,
+            json={'vim_name': vim}).json()
         logger.info(responseJson)
         return responseJson
     except ConnectionError as e:
         jsonError = {'Error': 'Impossible to contact VNSFO connector'}
-        logger.error(jsonError)
+        logger.error(str(e))
         return False
+
+
+def get_vim_by_ip(ip):
+    logger.info('Retrieve VIM by IP address')
+    url_vnsfo_connector = (
+        settings.BASIC_URL_VNSFO +
+        '/vnsfo_connector/get_vim_by_ip'
+    )
+    return requests.post(
+        url_vnsfo_connector,
+        json={'vim_ip': ip}).json()
 
 
 def get_drivers_status():
@@ -262,36 +278,59 @@ def attest_compute(node):
     host = Host.objects.get(hostName=node['node'])
     logger.debug('Node found with ip %s' % host.address)
 
+    list_digest = []
     try:
         logger.info('Query vNSFO (and VIM-EMU) to see if containers' +
                     ' should be added')
 
-        list_info_vim = get_vim_by_ip(host.address)
-        logger.debug('VIM: ' + str(list_info_vim))
+        info_vim = get_vim_by_ip(host.address)
+        logger.debug('VIM information: ' + str(info_vim))
 
-        responseJson = get_vimemu_vims(list_info_vim)
+        # {'ip', 'xxx.xxx.xxx.xxx', 'uuid': 'uuid_vim', 'node': 'name',
+        # 'containers':
+        # [{'id': '121238123', 'vnfd_name': 'xxxx', 'ns_name': 'xxxx',
+        # 'image':'xxx'}]}
+        vim_docker = get_vimemu_vim(info_vim)
 
-        logger.debug("VIM-emu connector response for VIM: " + str(responseJson))
+        logger.debug("VIM-emu connector response for VIM: " +
+                     str(vim_docker))
 
-        list_vim_docker = responseJson['VIM']
+        # {'node': 'name',
+        # 'list_vnf': [
+        # {'vnf_name': 'instance_name', 'vnf_id': 'instance_id',
+        # 'vnfd_name': 'vnf_descriptor_name'
+        # 'ns_name': 'ns_instance_name',
+        # 'ns_id': 'ns_instance_id'}]
+        vim_vnf = get_vnsfs_from_vim(host.hostName)
 
-        logger.info('The information are %s'
-                    % str(list_vim_docker))
+        logger.debug("vNSFO connector response for vNSFs: " +
+                     str(vim_vnf))
 
-        list_docker_id = list_vim_docker[0]['docker_id']
+        list_vnf_containers = []
+        if vim_docker['containers']:
+            for container in vim_docker['containers']:
+                for vnf in vim_vnf['list_vnf']:
+                    # TODO: verify this equality from VNSFO API
+                    if (container['ns_name'] == vnf['ns_name'] and
+                            container['vnfd_name'] == vnf['vnfd_name']):
 
-        if not list_docker_id:
-            logger.warning('No Docker running in the VIM')
+                        list_vnf_containers.append(
+                            {"container_id": container["id"],
+                             "vnfd_name": container["vnfd_name"],
+                             "vnf_id": vnf["vnf_id"],
+                             "ns_id": vnf["ns_id"]})
+
+        if not list_vnf_containers:
+            logger.warning('No Docker running in the VIM ' +
+                           host.hostName)
             jsonAttest = {'node': host.hostName}
         else:
-            logger.debug('With this docker id: %s'
-                         % str(list_docker_id))
+            logger.debug('VIM ' + host.hostName + ' runs VNSFs: %s'
+                         % str(list_vnf_containers))
             jsonAttest = {'node': host.hostName, 'vnfs':
-                          list_docker_id}
+                          list_vnf_containers}
 
-        list_vim_vnf = get_vnsfs_from_vim(list_info_vim[0]['vim'])
-
-        add_container_measures_to_db(list_vim_vnf, list_info_vim)
+        list_digest = add_vnfs_measures_to_db(list_vnf_containers)
 
     except Exception as e:
         logger.error(str(e))
@@ -300,57 +339,56 @@ def attest_compute(node):
         jsonAttest = {'node': host.hostName}
 
     if host.driver == CIT_DRIVER:
-        return DriverCIT().pollHost(jsonAttest)
+        result = DriverCIT().pollHost(jsonAttest)
     elif host.driver == OAT_DRIVER:
-        return DriverOAT().pollHost(jsonAttest)
+        result = DriverOAT().pollHost(jsonAttest)
 
+    if 'vnfs' in jsonAttest:
+        # One or more VNFs have been attested for the compute node
+        remove_vnfs_measures_from_db(list_digest)
+
+    return result
 
 ###############################################################################
 # Interaction with Redis database (for known digests)
 ###############################################################################
 
 
-def add_container_measures_to_db(list_vim_vnf, list_vim):
-    if list_vim_vnf is False:
-        logger.warning('Impossible to get the information of vnfs '
-                       'for each vim (list of vNSF is empty)')
-    if isinstance(list_vim_vnf, dict):
-        list_vnf = []
-        for vim in list_vim_vnf['vim_vnf']:
-            list_vnf.extend(vim['list_vnf'])
-        logger.info('All vnfs are %s' % str(list_vnf))
-        list_digest = store_vnsfs_digests(list_vnf)
-        if list_digest is False:
-            logger.warning('Impossible to obtain the list of digest')
-        if list_digest:
-            value = redis_db(list_digest)
-            if value is not True:
-                logger.warning('Impossible to communicate with Redis, '
-                               'the measure not are added in DB')
-    else:
-        logger.warning('No vnf for vim: '+str(list_vim)+' are in executions')
+def remove_vnfs_measures_from_db(list_digest):
+    logger.info("Removing VNF entries from whitelist data")
+    value = delete_from_redis_db(list_digest)
+    if value is not True:
+        logger.warning('Impossible to communicate with Redis, '
+                       'the measure not are removed from DB')
 
 
-def store_vnsfs_digests(list_vnf):
-    try:
-        logger.info('Call method of store_connector to get the digests of '
-                    'vnfs')
-        urlStore = (settings.BASIC_URL_STORE +
-                    '/store_connector/get_vnsfs_digests')
-        jsonListVnf = {'list_vnf': list_vnf}
-        responseJson = requests.post(urlStore, json=jsonListVnf).json()
-        logger.info('Response is %s' % responseJson)
-        return responseJson
-    except ConnectionError as e:
-        jsonError = {'Error': 'Impossible contact to store connector'}
-        logger.error(jsonError)
-        return False
+# [{"container_id": container["id"],
+# "vnfd_name": container["vnfd_name"],
+# "vnf_id": vnf["id"],
+# "ns_id": vnf["ns_id"]}]
+def add_vnfs_measures_to_db(list_vnf_containers):
+    logger.info("Including VNF entries in whitelist data")
+
+    list_vnfd = []
+    for vnf in list_vnf_containers:
+        list_vnfd.append(vnf["vnfd_name"])
+
+    logger.info('All VNFDs are %s' % str(list_vnfd))
+    list_digest = get_vnsfs_digests_from_store(list_vnfd)
+    if list_digest is False:
+        logger.warning('Impossible to obtain the list of digest')
+    if list_digest:
+        value = add_to_redis_db(list_digest)
+        if value is not True:
+            logger.warning('Impossible to communicate with Redis, '
+                           'the measure not are added in DB')
+    return list_digest
 
 
 # Start with list of digest obtained to the method store_vnsfs_digests
 # list_digest = [{'pathFile': 'digest_of_measure'}]
-def redis_db(list_digest):
-    logger.info('Added digest to Redis DB')
+def add_to_redis_db(list_digest):
+    logger.info('Adding digests to Redis DB')
     logger.info('list digest %s' % list_digest)
     try:
         from trust_monitor.verifier.instantiateDB import DigestListUpdater
@@ -365,12 +403,39 @@ def redis_db(list_digest):
                     DigestListUpdater.append_known_digest(value)
                 else:
                     if data == value:
-                        logger.debug('The digest already exist in redis')
+                        logger.debug('The digest already exists in redis')
                     else:
-                        logger.debug('The digest is changed update redis')
+                        logger.debug('The digest is changed. Update redis')
                         redisDB(key, value)
                         DigestListUpdater.remove_known_digest(data)
                         DigestListUpdater.append_known_digest(value)
+
+        logger.info("Removed digests from Redis DB")
+        return True
+    except redis.ConnectionError as e:
+        jsonError = {'Error': 'Impossible contact to Redis db'}
+        logger.warning(jsonError)
+        return jsonError
+    finally:
+        del redisDB
+
+
+def delete_from_redis_db(list_digest):
+    logger.info('Remove digests from Redis DB')
+    logger.info('list digest %s' % list_digest)
+    try:
+        from trust_monitor.verifier.instantiateDB import DigestListUpdater
+        redisDB = redis.Redis(host='tm_database_redis', port='6379')
+        for digest in list_digest:
+            for key, value in digest.items():
+                data = redisDB.get(key)
+                if data is None:
+                    logger.debug('The digest is not present in redis')
+                else:
+                    redisDB.delete(key)
+                DigestListUpdater.remove_known_digest(data)
+
+        logger.info("Removed digests from Redis DB")
         return True
     except redis.ConnectionError as e:
         jsonError = {'Error': 'Impossible contact to Redis db'}

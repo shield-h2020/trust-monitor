@@ -4,4 +4,4 @@
 ###############################################################################
 
 # Base URL for the vNSF Store API
-STORE_BASE_URL = 'http://10.101.10.xxx/attestation/vnsfs/'
+STORE_BASE_URL = 'http://10.101.10.110:5050/attestation/vnsfs/'

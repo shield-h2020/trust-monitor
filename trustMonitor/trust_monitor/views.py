@@ -37,7 +37,7 @@ class RegisterNode(APIView):
         with Trust Monitor.
         Example of use of this method is:
         Call basic-url/register_node without parameters and it
-        return a list of all hosts register to Trust Monitor.
+        returns a list of all hosts registered to Trust Monitor.
 
         Args:
 
@@ -57,18 +57,19 @@ class RegisterNode(APIView):
         The json object is formed by four parameters, all these parameters are
         mandatory.
         The parameters of json object are: distribution, address, hostName and
-        pcr0.
+        driver.
         Distribution define a definition of OS of host.
         hostName is the name of host and address is the IP address associated
-        with the host, pcr0 is the value of first item of TPM of the host.
+        with the host, driver is the attestation driver for the node.
         Example: call basic-url/register_node post
         and include json with the previous values, the result indicates
         if the registration was successful or if there was an error.
 
         Args:
             json object {'hostName': '', 'address': '',
-                         'distribution': '', 'pcr0': '', 'driver': '',
-                         'analysisType': ''}
+                         'distribution': '', 'driver': ''}
+
+            Argument pcr0 (string) should be specified for OAT driver
         Return:
             - The host created
             - Message Error
@@ -79,10 +80,29 @@ class RegisterNode(APIView):
             serializer = HostSerializer(data=request.data)
             if serializer.is_valid():
                 logger.debug('Serialization of host is valid')
+
+                logger.debug("Check if node is already registered...")
+                host_query = Host.objects.get(address=request.data["address"])
+                if host_query:
+                    logger.warning(
+                        "Node with IP address " + host_query.address +
+                        " already registered as " + host_query.hostName)
+
+                    serialized_host = HostSerializer(host_query, many=False)
+
+                    return Response(serialized_host, status=status.HTTP_200_OK)
+
+                if request.data['pcr0']:
+                    logger.debug("PCR0 specified for new host " + request.data)
+                    pcr0_input = request.data['pcr0']
+                else:
+                    pcr0_input = ""
+
                 newHost = Host(hostName=request.data["hostName"],
                                address=request.data["address"],
                                driver=request.data['driver'],
-                               distribution=request.data['distribution'])
+                               distribution=request.data['distribution'],
+                               pcr0=pcr0_input)
 
                 register_node(newHost)
                 serializer.save()
@@ -351,6 +371,7 @@ class Known_Digest(APIView):
         Example: call basic-url/known_digests delete and include
         json with the previous value, the result indicates if the removed was
         successful or if there was an error.
+        If digest is "all", all additional digests are removed
 
         Args:
             json object {'digest': 'sha1(/usr/bin/test)'}
@@ -358,7 +379,7 @@ class Known_Digest(APIView):
             - The known digest is deleted by the list of digest.
             - Message Error
         """
-        logger.info('Call delete method of KnownDigest to removed a '
+        logger.info('Call delete method of KnownDigest to remove a '
                     'digest')
         logger.info(request.data)
         serializer = DigestRemoved(data=request.data)
@@ -366,16 +387,27 @@ class Known_Digest(APIView):
             logger.debug('Serialization of digest is valid')
             logger.info('See if the digest already exists in db')
             try:
-                digest_found = KnownDigest.objects.get(
-                    digest=serializer.data['digest'])
-                logger.info('Removed known digest %s %s',
-                            digest_found.pathFile, digest_found.digest)
-                DigestListUpdater.remove_known_digest(digest_found.digest)
-                digest_found.delete()
-                logger.info("Digest %s removed from django db",
-                            digest_found.digest)
-                jsonMessage = {'Digest %s' % digest_found.digest: 'removed'}
-                return Response(jsonMessage, status=status.HTTP_200_OK)
+                digest_name = serializer.data['digest']
+
+                if digest_name == "all":
+                    logger.info("Removing all additional digests from TM")
+                    for known_digest in KnownDigest.objects.all():
+                        DigestListUpdater.remove_known_digest(
+                            known_digest.digest)
+                        known_digest.delete()
+                    return Response({}, status=status.HTTP_200_OK)
+
+                else:
+                    digest_found = KnownDigest.objects.get(
+                        digest=digest_name)
+                    logger.info('Removed known digest %s %s',
+                                digest_found.pathFile, digest_found.digest)
+                    DigestListUpdater.remove_known_digest(digest_found.digest)
+                    digest_found.delete()
+                    logger.info("Digest %s removed from django db",
+                                digest_found.digest)
+                    jsonMessage = {'Digest %s' % digest_found.digest: 'removed'}
+                    return Response(jsonMessage, status=status.HTTP_200_OK)
             except ObjectDoesNotExist as objDoesNotExist:
                 logger.info('Digest not found in database')
                 jsonMessage = {'Digest %s' % request.data['digest']:

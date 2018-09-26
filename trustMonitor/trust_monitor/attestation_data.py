@@ -1,4 +1,4 @@
-import time
+from datetime import datetime
 import logging
 
 logger = logging.getLogger('django')
@@ -12,7 +12,7 @@ class AttestationStatus():
         self.list_sdn_attestation = []
 
     def get_current_time(self):
-        return int(round(time.time()*1000))
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     def getTime(self):
         return self.vtime
@@ -21,11 +21,15 @@ class AttestationStatus():
         return self.trust
 
     def update(self, attestation):
-        self.vtime = self.get_current_time()
         if isinstance(attestation, HostAttestation):
             logger.debug("Update global attestation status with Host info")
+            if attestation.analysis_containers:
+                for container_attestation in attestation.analysis_containers:
+                    if not container_attestation.trust:
+                        logger.debug("Trust status is False (container)")
+                        self.trust = False
             if not attestation.trust:
-                logger.debug("Trust status changed to False")
+                logger.debug("Trust status is False (host)")
                 self.trust = False
             self.list_host_attestation.append(attestation)
         elif isinstance(attestation, SDNAttestation):
@@ -38,6 +42,7 @@ class AttestationStatus():
             logger.error(
                 "Impossible to update attestation status (unknown)")
             self.trust = False
+        self.vtime = self.get_current_time()
 
     def json(self):
         # Create list of JSON HostAttestation objects
@@ -94,6 +99,11 @@ class HostAttestation():
         self.analysis_extra_info = analysis_extra_info
         self.analysis_containers = analysis_containers
         self.driver = driver
+        self.time = self.get_current_time()
+        self.host_remediation = HostAttestationRemediation()
+
+    def get_current_time(self):
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     def json(self):
 
@@ -108,13 +118,22 @@ class HostAttestation():
         if isinstance(self.analysis_extra_info, HostAttestationExtraInfo):
             json_extra_info = self.analysis_extra_info.json()
 
+        # Add host remediation
+
+        if not self.trust:
+            self.host_remediation.is_isolate = True
+            self.host_remediation.is_reboot = True
+
         return {
             'node': self.node,
             'trust': self.trust,
+            'time': self.time,
             'status': self.analysis_status,
             'extra_info': json_extra_info,
             'vnsfs': list_json_vnsfs_attest,
-            'driver': self.driver}
+            'driver': self.driver,
+            'remediation': self.host_remediation.json()
+            }
 
 
 class HostAttestationExtraInfo():
@@ -154,13 +173,63 @@ class HostAttestationExtraInfo():
         }
 
 
-class ContainerAttestation():
-    def __init__(self, container='', trust=True):
-        self.container = container
-        self.trust = trust
+class HostAttestationRemediation():
+    def __init__(
+            self,
+            is_isolate=False,
+            is_update=False,
+            is_reboot=False):
+        self.is_isolate = is_isolate
+        self.is_update = is_update
+        self.is_reboot = is_reboot
 
     def json(self):
         return {
+            'isolate': self.is_isolate,
+            'reboot': self.is_reboot,
+            'update': self.is_update
+        }
+
+
+class ContainerAttestation():
+    def __init__(self, container='', trust=True, vnsf_id='', vnsfd_name='',
+                 ns_id=''):
+        self.container = container
+        self.trust = trust
+        self.vnsf_id = vnsf_id
+        self.vnsfd_name = vnsfd_name
+        self.ns_id = ns_id
+        self.container_remediation = ContainerAttestationRemediation()
+
+    def json(self):
+
+        # Add container remediation
+        if not self.trust:
+            self.container_remediation.is_isolate = True
+
+        return {
+            'vnsf_id': self.vnsf_id,
+            'vnsfd_name': self.vnsfd_name,
+            'ns_id': self.ns_id,
             'container': self.container,
-            'trust': self.trust
+            'trust': self.trust,
+            'remediation': self.container_remediation.json()
+        }
+
+
+class ContainerAttestationRemediation():
+    def __init__(
+            self,
+            is_isolate=False,
+            is_update=False,
+            is_reboot=False):
+        self.is_isolate = is_isolate
+        self.is_update = is_update
+        self.is_reboot = is_reboot
+
+    def json(self):
+        return {
+            'isolate': self.is_isolate,
+            'update': self.is_update,
+            'reboot': self.is_reboot
         }

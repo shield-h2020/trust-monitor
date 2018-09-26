@@ -138,7 +138,51 @@ class DriverOAT():
         logger.debug('Message: ' + str(resp.text))
         return resp
 
+    # {'node': host.hostName, 'vnfs':[
+    # {"container_id": xxx,
+    # "vnfd_name": xxx,
+    # "vnf_id": xxx,
+    # "ns_id": xxx}]
+
     def pollHost(self, node):
+        # first, the node with containers is attested
+        logger.info("Verify node with containers")
+        result = self.pollHostOAT(node)
+        logger.info("Node verified.")
+        containers_trust = True
+        host_digests_untrusted = False
+        # check if any containers are untrusted
+        if result.analysis_containers:
+            logger.info("Check individual container trust level")
+            for container_attestation in result.analysis_containers:
+                if not container_attestation.trust:
+                    containers_trust = False
+                    logger.info("Container trust level false")
+
+            # if so, check if any binaries in the host are untrusted
+            if not containers_trust:
+                for digest in result.analysis_extra_info.digest_list_not_found:
+                    if digest['instance'] == 'host':
+                        host_digests_untrusted = True
+                for digest in result.analysis_extra_info.digest_list_fake_lib:
+                    if digest['instance'] == 'host':
+                        host_digests_untrusted = True
+
+            if host_digests_untrusted:
+                logger.info("One or more digests in host found untrusted")
+        # if no host binaries are untrusted, query the host trust level to
+        # ensure that other PCRs are still correct
+        if not containers_trust and not host_digests_untrusted:
+            logger.info("Verify host trust level only")
+            node.pop('vnfs', None)
+            host_result = self.pollHostOAT(node)
+            result.trust = host_result.trust
+            result.time = host_result.time
+            result.analysis_status = host_result.analysis_status
+
+        return result
+
+    def pollHostOAT(self, node):
         logger.info('In pollHost method in driverOAT')
         url = (
             'https://'+OAT_LOCATION+':' + OAT_PORT +
@@ -146,14 +190,15 @@ class DriverOAT():
             '/PollHosts')
 
         logger.info('Analyze node: ' + node['node'])
-        listvnf = ''
 
         # Retrieve (if available) list of containers to attest
+        listvnf = ''
+
         try:
             logger.debug('Define list of vnfs for node: '
                          + node['node'])
             for vnf in node['vnfs']:
-                listvnf += vnf + '+'
+                listvnf += vnf['container_id'] + '+'
         except KeyError as keyErr:
             logger.warning('No vnf for node: ' + node['node']
                            + " vnfs set to ''")
@@ -181,7 +226,7 @@ class DriverOAT():
             # of the first (and only) host in the response
             jsonResponse = json.loads(respo.text)['hosts']
             jsonElem = jsonResponse[0]
-
+            logger.info(str(jsonResponse))
             # Extract initial information from report
             trust = extractTrustLevelFromResult(jsonElem['trust_lvl'])
             analysis_status = extractAnalysisStatusFromResult(
@@ -213,11 +258,19 @@ class DriverOAT():
                         trust_cont = False
                     else:
                         trust_cont = True
-                    container_attestation = ContainerAttestation(
-                        container,
-                        trust_cont
-                    )
-                    list_container_attestation.append(container_attestation)
+
+                    for vnf in node['vnfs']:
+                        # Add to list only containers in the initial vnsf list
+                        if vnf['container_id'] == container:
+                            container_attestation = ContainerAttestation(
+                                container,
+                                trust_cont,
+                                vnf['vnf_id'],
+                                vnf['vnfd_name'],
+                                vnf['ns_id']
+                            )
+                            list_container_attestation.append(
+                                container_attestation)
 
             # Create (and return) the final HostAttestation object
             host_attestation = HostAttestation(

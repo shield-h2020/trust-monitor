@@ -239,7 +239,8 @@ leverage the whitelist-based verification for compute nodes.
 
 The various measures must have mandatory information to be treated as objects of the IMARecord class in ordert to be included in the list of digest that are analyzed during the integrity verification procedure.
 For example:
-```python
+
+```
 pcr = "10" # the pcr register that contain this measure
 template_digest = "null" # the information of template
 template_name = "ima-ng" # the kind of template used by IMA
@@ -368,6 +369,7 @@ via a direct SSH connection to the switch verifier host.
 In order to run it, the following parameters must be added in the
 `trustMonitor/trust_monitor_driver/driverHPESettings.py`
 file, as follows:
+
 ```
 SWITCH_VERIFIER_PATH = '/remote/path/to/<final name of switchVerifier binary>'
 SWITCH_VER_CONFIG_PATH = '/remote/path/to/<name of configuration file (default config.json)>'

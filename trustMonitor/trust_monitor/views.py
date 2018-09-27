@@ -82,8 +82,9 @@ class RegisterNode(APIView):
                 logger.debug('Serialization of host is valid')
 
                 logger.debug("Check if node is already registered...")
-                host_query = Host.objects.get(address=request.data["address"])
-                if host_query:
+                try:
+                    host_query = Host.objects.get(
+                        address=request.data["address"])
                     logger.warning(
                         "Node with IP address " + host_query.address +
                         " already registered as " + host_query.hostName)
@@ -91,11 +92,14 @@ class RegisterNode(APIView):
                     serialized_host = HostSerializer(host_query, many=False)
 
                     return Response(serialized_host, status=status.HTTP_200_OK)
+                except Host.DoesNotExist:
+                    logger.debug("Node is not registered yet, continue...")
 
-                if request.data['pcr0']:
+                if 'pcr0' in request.data:
                     logger.debug("PCR0 specified for new host " + request.data)
                     pcr0_input = request.data['pcr0']
                 else:
+                    logger.debug("PCR0 not specified for host")
                     pcr0_input = ""
 
                 newHost = Host(hostName=request.data["hostName"],

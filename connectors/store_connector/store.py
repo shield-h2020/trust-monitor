@@ -19,22 +19,34 @@ def store_vnsfs_digests():
     # Input: { 'list_vnfd' : ['name_vnf', 'name2_vnf']}
     data = request.get_json()
 
-    list_digest = retrieve_digests_from_store(data['list_vnfd'])
-    app.logger.info('Measures: %s' % str(list_digest))
-    return flask.Response(json.dumps(list_digest))
+    list_vnfd_digest = retrieve_digests_from_store(data['list_vnfd'])
+    app.logger.info('Measures: %s' % str(list_vnfd_digest))
+    return flask.Response(json.dumps(list_vnfd_digest))
 
 
-def load_attestation_data_from_store(vnfd):
+def retrieve_digests_from_store(list_vnfd):
+    list_vnfd_digest = []
+    for vnfd_id in list_vnfd:
+        try:
+            list_vnfd_digest.append(load_attestation_data_from_store(vnfd_id))
+        except Exception as e:
+            json_error = {'Generic error': e}
+            app.logger.error(str(e))
+    return list_vnfd_digest
+
+
+def load_attestation_data_from_store(vnfd_id):
     app.logger.debug(
         'Contact vNSF Store API to retrieve attestation file')
 
-    if os.path.isfile(str(vnfd) + '.json'):
-        app.logger.debug('Analyze file %s' % str(vnfd))
-        stream = file(str(vnfd)+'.json')
+    attestation_filename = str(vnfd_id) + "_attestation.json"
+    if os.path.isfile(attestation_filename):
+        app.logger.debug('Analyze file %s' % attestation_filename)
+        stream = file(attestation_filename)
         data = json.load(stream)
     else:
         # Compose URL by attaching vnf identifier to base url
-        url = store_settings.STORE_BASE_URL + str(vnfd)
+        url = store_settings.STORE_BASE_URL + str(vnfd_id)
         app.logger.info(url)
         response = requests.get(url, verify=False)
         logger.debug('Response received from vNSF Store API')
@@ -47,26 +59,7 @@ def load_attestation_data_from_store(vnfd):
             if key != "instance":
                 digests_list.append({key: vdu_digest[key]})
 
-    return digests_list
-
-
-def retrieve_digests_from_store(list_vnfd):
-    list_digest = []
-    for vnfd in list_vnfd:
-        try:
-            # sec_manifest = load_security_manifest_from_store(vnf)
-            # values = (sec_manifest['manifest:vnsf']['security_info']['vdu']
-            #           [0]['attestation'])
-            # if values is not None:
-            #     app.logger.debug('Measure %s' % str(values))
-            #     for key, value in values.iteritems():
-            #         temp = {key: value}
-            #         list_digest.append(temp)
-            list_digest.extend(load_attestation_data_from_store(vnfd))
-        except Exception as e:
-            json_error = {'Generic error': e}
-            app.logger.error(str(e))
-    return list_digest
+    return {'vnfd_id': vnfd_id, 'digests': digests_list}
 
 
 @app.route("/store_connector", methods=["GET"])

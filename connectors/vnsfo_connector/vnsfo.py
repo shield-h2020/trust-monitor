@@ -72,8 +72,7 @@ def list_vnsfs_vim():
 
 # API call toward vnsfo
 # get list of running vnf for a specific VIM
-# returns a list of objects:
-# {'vim': <host_name>, 'list_vnf': [{'name': 'vnf_name', 'id': 'vnf_id}]}
+# returns a list of JSON objects with same fields as VNSFO API
 def getVNSFInformationFromVNSFO(vim_name):
     url = vnsfo_baseurl + "/vnsf/running"
     app.logger.info(url)
@@ -87,15 +86,16 @@ def getVNSFInformationFromVNSFO(vim_name):
         if (vnsfJson['vim'] == vim_name
                 and vnsfJson['operational_status'] == 'running'):
             # each VNF name is in the form:
-            # "<ns_instance_name>__<vnfd_name>__<number>"
-            ns_name = vnsfJson['ns_name']
+            # "<ns_instance_name>__<vnfd_id>__<number>"
             vnf_name = vnsfJson['vnf_name']
             vnfd_name = vnf_name.split('__')[1]
             vnf_list.append(
                 {'vnf_name': vnsfJson['vnf_name'],
-                 'vnf_id': vnsfJson['vnf_id'],
-                 'vnfd_name': vnfd_name,
-                 'ns_name': ns_name,
+                 'vnfd_id': vnfd_name,
+                 # TODO: enable                 'vnfd_id': vnsfJson['vnsfd_id'],
+                 # TODO: enable                 'vnfr_id': vnsfJson['vnsfr_id'],
+                 'vnfr_id': vnsfJson['vnf_id'],
+                 'ns_name': vnsfJson['ns_name'],
                  'ns_id': vnsfJson['ns_id']})
 
     return {'node': vim_name, 'list_vnf': vnf_list}

@@ -140,8 +140,8 @@ class DriverOAT():
 
     # {'node': host.hostName, 'vnfs':[
     # {"container_id": xxx,
-    # "vnfd_name": xxx,
-    # "vnf_id": xxx,
+    # "vnfd_d": xxx,
+    # "vnfr_id": xxx,
     # "ns_id": xxx}]
 
     def pollHost(self, node):
@@ -265,8 +265,8 @@ class DriverOAT():
                             container_attestation = ContainerAttestation(
                                 container,
                                 trust_cont,
-                                vnf['vnf_id'],
-                                vnf['vnfd_name'],
+                                vnf['vnfr_id'],
+                                vnf['vnfd_id'],
                                 vnf['ns_id']
                             )
                             list_container_attestation.append(

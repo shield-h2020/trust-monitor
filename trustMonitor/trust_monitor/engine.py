@@ -310,7 +310,6 @@ def attest_compute(node):
         if vim_docker['containers']:
             for container in vim_docker['containers']:
                 for vnf in vim_vnf['list_vnf']:
-                    # TODO: verify this equality from VNSFO API
                     if (container['ns_name'] == vnf['ns_name'] and
                             container['vnfd_id'] == vnf['vnfd_id']):
 

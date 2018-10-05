@@ -87,14 +87,12 @@ def getVNSFInformationFromVNSFO(vim_name):
                 and vnsfJson['operational_status'] == 'running'):
             # each VNF name is in the form:
             # "<ns_instance_name>__<vnfd_id>__<number>"
-            vnf_name = vnsfJson['vnf_name']
-            vnfd_name = vnf_name.split('__')[1]
+            # vnf_name = vnsfJson['vnf_name']
+            # vnfd_name = vnf_name.split('__')[1]
             vnf_list.append(
                 {'vnf_name': vnsfJson['vnf_name'],
-                 'vnfd_id': vnfd_name,
-                 # TODO: enable                 'vnfd_id': vnsfJson['vnsfd_id'],
-                 # TODO: enable                 'vnfr_id': vnsfJson['vnsfr_id'],
-                 'vnfr_id': vnsfJson['vnf_id'],
+                 'vnfd_id': vnsfJson['vnsfd_id'],
+                 'vnfr_id': vnsfJson['vnfr_id'],
                  'ns_name': vnsfJson['ns_name'],
                  'ns_id': vnsfJson['ns_id']})
 
@@ -104,30 +102,35 @@ def getVNSFInformationFromVNSFO(vim_name):
 # API call towards VNSFO
 # returns a list of objects: {'node': <node>, 'uuid': <uuid>, 'ip': <ip>}
 def getNodeInformationFromVNSFO():
-    url = vnsfo_baseurl + "/node"
+    url = vnsfo_baseurl + "/nfvi/node/physical"
     app.logger.info(url)
     response = requests.get(url, verify=False)
     app.logger.debug('Response received from vNSFO API: ' + response.text)
     nodesJson = response.json()
-    list_vim_ip = []
+    list_node_ip = []
     try:
         for nodeJson in nodesJson:
-            dict = {'node': nodeJson['host_name'],
-                    'uuid': nodeJson['node_id'],
-                    'ip': nodeJson['ip_address']}
-            list_vim_ip.append(dict)
-
+            if nodeJson['status'] == 'connected':
+                app.logger.debug(
+                    'Node ' + nodeJson['host_name'] + ' is connected')
+                dict = {'node': nodeJson['host_name'],
+                        'uuid': nodeJson['node_id'],
+                        'ip': nodeJson['ip_address']}
+                list_node_ip.append(dict)
+            else:
+                app.logger.debug(
+                    'Node ' + nodeJson['host_name'] + ' not connected, skip.')
     except Exception:
         # single result, JSON dict
-        list_vim_ip.append(
+        list_node_ip.append(
             {'node': nodesJson['host_name'],
              'uuid': nodesJson['node_id'],
              'ip': nodesJson['ip_address']})
 
-    if not list_vim_ip:
+    if not list_node_ip:
         app.logger.warning("No nodes detected from VNSFO")
 
-    return list_vim_ip
+    return list_node_ip
 
 
 if __name__ == '__main__':

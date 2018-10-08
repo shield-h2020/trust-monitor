@@ -151,6 +151,11 @@ class DriverOAT():
         logger.info("Node verified.")
         containers_trust = True
         host_digests_untrusted = False
+
+        if not result:
+            logger.error("OAT pollHost returned none. OAT verifier may not be"
+                         "to contact OAT hostAgent")
+            return None
         # check if any containers are untrusted
         if result.analysis_containers:
             logger.info("Check individual container trust level")

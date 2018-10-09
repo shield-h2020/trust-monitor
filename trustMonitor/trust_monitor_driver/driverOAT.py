@@ -140,8 +140,8 @@ class DriverOAT():
 
     # {'node': host.hostName, 'vnfs':[
     # {"container_id": xxx,
-    # "vnfd_name": xxx,
-    # "vnf_id": xxx,
+    # "vnfd_d": xxx,
+    # "vnfr_id": xxx,
     # "ns_id": xxx}]
 
     def pollHost(self, node):
@@ -151,6 +151,11 @@ class DriverOAT():
         logger.info("Node verified.")
         containers_trust = True
         host_digests_untrusted = False
+
+        if not result:
+            logger.error("OAT pollHost returned none. OAT verifier may not be"
+                         "to contact OAT hostAgent")
+            return None
         # check if any containers are untrusted
         if result.analysis_containers:
             logger.info("Check individual container trust level")
@@ -265,8 +270,8 @@ class DriverOAT():
                             container_attestation = ContainerAttestation(
                                 container,
                                 trust_cont,
-                                vnf['vnf_id'],
-                                vnf['vnfd_name'],
+                                vnf['vnfr_id'],
+                                vnf['vnfd_id'],
                                 vnf['ns_id']
                             )
                             list_container_attestation.append(

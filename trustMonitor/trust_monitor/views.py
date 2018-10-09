@@ -15,7 +15,8 @@ from trust_monitor.engine import (
     get_connectors_status,
     get_drivers_status,
     get_databases_status,
-    register_node
+    register_node,
+    get_audit_log
 )
 from trust_monitor_driver.driverConstants import *
 from trust_monitor_driver.driverOAT import verify_callback
@@ -448,6 +449,43 @@ class Status(APIView):
         message.append({'connectors': get_connectors_status()})
         message.append({'databases': get_databases_status()})
         return Response(message, status=status.HTTP_200_OK)
+
+
+class Audit(APIView):
+    """
+    Retrieve audit log for node.
+    """
+    def post(self, request, format=None):
+        """
+        Accepts a JSON object with parameters: node_id,
+        from_date, to_date. Dates are specified as strings with this format:
+        "%Y-%m-%d %H:%M:%S.%f". The only mandatory parameter is node_id, it will
+        retrieve last attestation.
+        """
+        logger.info('Audit API invoked.')
+        serializer = AuditValues(data=request.data)
+        if serializer.is_valid():
+            node_id = serializer.data["node_id"]
+            from_date = None
+            to_date = None
+            logger.info("Audit requested for node " + node_id)
+            if 'from_date' in request.data:
+                logger.debug("Start date specified for audit")
+                from_date = request.data['from_date']
+            if 'to_date' in request.data:
+                logger.debug("Stop date specified for audit")
+                to_date = request.data['to_date']
+            data = get_audit_log(node_id, from_date, to_date)
+
+            if not data:
+                logger.error('Audit request to DARE returned some error.')
+                return Response(2, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                return Response(data, status=status.HTTP_200_OK)
+        else:
+            logger.error('Serialization generated an error ' +
+                         str(serializer.errors))
+            return Response(2, status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerifyCallback(APIView):

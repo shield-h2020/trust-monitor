@@ -19,6 +19,7 @@ services:
     build: ./connectors/dare_connector
     volumes:
       - './logs/tm_connectors/dare:/logs'
+      - './connectors/dare_connector/audit:/trust_monitor_audit'
 
   tm_store_connector:
     image: ra/connectors/store_connector

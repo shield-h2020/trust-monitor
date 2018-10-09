@@ -7,11 +7,12 @@ import dare_settings
 import requests
 from pathlib import Path
 from dateutil.parser import parse
+import io
 
 app = flask.Flask('dare_connector')
 
 
-def get_results(node, start_date=None, stop_date=None):
+def get_results(node, from_date=None, to_date=None):
 
     audit_list = []
     p = Path(dare_settings.DARE_ROOT_PATHNAME)
@@ -27,14 +28,14 @@ def get_results(node, start_date=None, stop_date=None):
         p_subdirs = [x for x in node_path.iterdir() if x.is_dir()]
 
         # If a start, stop date was provided, filter them
-        if start_date and stop_date:
+        if from_date and to_date:
             app.logger.debug("Dates provided for audit")
             # To do so, first consider only the last 10 characters of the
             # full path (the date)
             # and compare the date to start and stop dates
             p_subdirs = filter(lambda x:
-                               (str(x)[-10:] >= start_date
-                                and str(x)[-10:] <= stop_date), p_subdirs)
+                               (str(x)[-10:] >= from_date
+                                and str(x)[-10:] <= to_date), p_subdirs)
 
         else:
             # Else, only the latest subdir must be retrieved
@@ -53,13 +54,13 @@ def get_results(node, start_date=None, stop_date=None):
                                 key=lambda x: str(x),
                                 reverse=True)
             # In case of no date span, easy solution: get only latest file
-            if not start_date and not stop_date:
+            if not from_date and not to_date:
                 json_files = [json_files[0]]
 
             # For each file, load its json content and append in audit list
             for json_file in json_files:
                 app.logger.debug('JSON file open for read: ' + str(json_file))
-                with open(str(first_json)) as data_file:
+                with open(str(json_file)) as data_file:
                     audit_list.append(json.load(data_file))
 
     # Return audit list
@@ -68,8 +69,9 @@ def get_results(node, start_date=None, stop_date=None):
 
 def save_to_path(data, node, time):
     p = Path(dare_settings.DARE_ROOT_PATHNAME)
-    dateobj = parse(time)
-    date_dir = dateobj.format("%Y-%m-%d")
+    # Fuzzy parser to accept timestring even if unknown tokens inside
+    dateobj = parse(time, fuzzy=True)
+    date_dir = dateobj.strftime("%Y-%m-%d")
 
     # If path does not exist, create the dir for the node
     if not p.exists():
@@ -78,13 +80,14 @@ def save_to_path(data, node, time):
 
     # The audit dir for the node has dirs with dates
     audit_dir = p / node / date_dir
-    app.logger.debug('Saving attestation result for ' + node
-                     ' in directory ' + audit_dir)
-    audit_dir.mkdir(parents=True)
+    app.logger.debug('Saving attestation result for ' + node +
+                     ' in directory ' + str(audit_dir))
+    if not audit_dir.exists():
+        audit_dir.mkdir(parents=True)
     # Each filename in each date dir has the node name, the full date string
     # from attestation result and the .json extension
 
-    filename = node + dateobj.format("%Y-%m-%d_%H:%M:%S.%f") + '.json'
+    filename = node + dateobj.strftime("%Y-%m-%d_%H:%M:%S.%f") + '.json'
     audit_filepath = audit_dir / filename
     app.logger.debug('Saving attestation result in file ' + filename)
     # Create empty file
@@ -99,22 +102,26 @@ def push_attestation_result(json):
     for host in json['hosts']:
         save_to_path(host, host['node'], host['time'])
     for sdn in json['sdn']:
-        save_to_path(sdn, sdn['node'], node['extra_info']['Time'])
+        save_to_path(sdn, sdn['node'], sdn['extra_info']['Time'])
 
 
-# Data is a JSON with {'node_id': xxx, 'start_date': <format_datestring>,
-# 'stop_date': <format_datestring>}
+# Data is a JSON with {'node_id': xxx, 'from_date': <format_datestring>,
+# 'to_date': <format_datestring>}
 def pull_attestation_result(json):
     node = json['node_id']
-    start_date = json['start_date']
-    stop_date = json['stop_date']
+    from_date = None
+    to_date = None
+    if 'from_date' in json:
+        from_date = json['from_date']
+    if 'to_date' in json:
+        to_date = json['to_date']
 
-    if start_date and stop_date:
-        start_date = parse(start_date).format("%Y-%m-%d")
-        stop_date = parse(stop_date).format("%Y-%m-%d")
-        app.logger.debug("Pull audit data for specified timeframe: "
-                         start_date + " --> " + stop_date)
-        return get_results(node, start_date, stop_date)
+    if from_date and to_date:
+        from_date = parse(from_date).strftime("%Y-%m-%d")
+        to_date = parse(to_date).strftime("%Y-%m-%d")
+        app.logger.debug("Pull audit data for specified timeframe: " +
+                         from_date + " --> " + to_date)
+        return get_results(node, from_date, to_date)
     else:
         app.logger.debug("Pull audit data for last result")
         return get_results(node)
@@ -124,17 +131,15 @@ def pull_attestation_result(json):
 def store_result():
     app.logger.debug('In post method of dare_connector/store_result')
     data = request.get_json()
-    attestationJsonResult = json.dumps(data, ensure_ascii=False)
-    push_attestation_result(attestationJsonResult)
+    push_attestation_result(data)
     return flask.Response()
 
 
-@app.route("/dare_connector/retrieve_audit")
+@app.route("/dare_connector/retrieve_audit", methods=["POST"])
 def retrieve_audit():
     app.logger.debug('In post method of dare_connector/retrieve_audit')
     data = request.get_json()
-    auditJsonRequest = json.dumps(data, ensure_ascii=False)
-    jsonResponse = pull_attestation_result(auditJsonRequest)
+    jsonResponse = pull_attestation_result(data)
     return flask.Response(json.dumps(jsonResponse))
 
 
@@ -151,7 +156,7 @@ if __name__ == '__main__':
                     ' - %(message)s')
     formatter = logging.Formatter(logFormatStr, '%Y-%b-%d %H:%M:%S')
     fileHandler = logging.FileHandler("/logs/dare_connector.log")
-    fileHandler.setLevel(logging.INFO)
+    fileHandler.setLevel(logging.DEBUG)
     fileHandler.setFormatter(formatter)
     app.logger.addHandler(fileHandler)
     app.run(debug=True, host='0.0.0.0')

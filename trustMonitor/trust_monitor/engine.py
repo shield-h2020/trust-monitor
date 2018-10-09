@@ -286,21 +286,11 @@ def attest_compute(node):
         info_vim = get_vim_by_ip(host.address)
         logger.debug('VIM information: ' + str(info_vim))
 
-        # {'ip', 'xxx.xxx.xxx.xxx', 'uuid': 'uuid_vim', 'node': 'name',
-        # 'containers':
-        # [{'id': '121238123', 'vnfd_id': 'xxxx', 'ns_name': 'xxxx',
-        # 'image':'xxx'}]}
         vim_docker = get_vimemu_vim(info_vim)
 
         logger.debug("VIM-emu connector response for VIM: " +
                      str(vim_docker))
 
-        # {'node': 'name',
-        # 'list_vnf': [
-        # {'vnf_name': 'instance_name', 'vnf_id': 'instance_id',
-        # 'vnfd_id': 'vnf_descriptor_name'
-        # 'ns_name': 'ns_instance_name',
-        # 'ns_id': 'ns_instance_id'}]
         vim_vnf = get_vnsfs_from_vim(host.hostName)
 
         logger.debug("vNSFO connector response for vNSFs: " +

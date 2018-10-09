@@ -9,4 +9,5 @@ urlpatterns = [
     url(r'^known_digests/$', views.Known_Digest.as_view()),
     url(r'^nfvi_attestation_info/$', views.AttestNFVI.as_view()),
     url(r'^nfvi_pop_attestation_info/$', views.AttestNFVIPoP.as_view()),
+    url(r'^audit/$', views.Audit.as_view()),
 ]

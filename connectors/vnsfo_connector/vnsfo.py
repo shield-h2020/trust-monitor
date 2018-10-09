@@ -85,13 +85,8 @@ def getVNSFInformationFromVNSFO(vim_name):
     for vnsfJson in vnsfsJson["vnsf"]:
         if (vnsfJson['vim'] == vim_name
                 and vnsfJson['operational_status'] == 'running'):
-            # each VNF name is in the form:
-            # "<ns_instance_name>__<vnfd_id>__<number>"
-            # vnf_name = vnsfJson['vnf_name']
-            # vnfd_name = vnf_name.split('__')[1]
             vnf_list.append(
-                {'vnf_name': vnsfJson['vnf_name'],
-                 'vnfd_id': vnsfJson['vnsfd_id'],
+                {'vnfd_id': vnsfJson['vnsfd_id'],
                  'vnfr_id': vnsfJson['vnfr_id'],
                  'ns_name': vnsfJson['ns_name'],
                  'ns_id': vnsfJson['ns_id']})

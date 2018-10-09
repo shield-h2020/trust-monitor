@@ -16,10 +16,10 @@ class HostSerializer(serializers.ModelSerializer):
                   'driver')
 
 
-class ResultSerializer(serializers.Serializer):
-    host_id = serializers.CharField()
-    trust_level = serializers.CharField()
-    vtime = serializers.DateTimeField()
+class AuditValues(serializers.Serializer):
+    node_id = serializers.CharField()
+    from_date = serializers.CharField()
+    to_date = serializers.CharField()
 
 
 class DigestSerializer(serializers.ModelSerializer):

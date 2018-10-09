@@ -18,8 +18,8 @@ class HostSerializer(serializers.ModelSerializer):
 
 class AuditValues(serializers.Serializer):
     node_id = serializers.CharField()
-    from_date = serializers.CharField()
-    to_date = serializers.CharField()
+    from_date = serializers.CharField(default=None, required=False)
+    to_date = serializers.CharField(default=None, required=False)
 
 
 class DigestSerializer(serializers.ModelSerializer):

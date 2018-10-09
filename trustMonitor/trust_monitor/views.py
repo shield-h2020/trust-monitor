@@ -479,13 +479,13 @@ class Audit(APIView):
 
             if not data:
                 logger.error('Audit request to DARE returned some error.')
-                return Response(2, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             else:
                 return Response(data, status=status.HTTP_200_OK)
         else:
             logger.error('Serialization generated an error ' +
                          str(serializer.errors))
-            return Response(2, status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerifyCallback(APIView):

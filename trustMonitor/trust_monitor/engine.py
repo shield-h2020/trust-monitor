@@ -53,13 +53,13 @@ def get_audit_log(node_id, from_date=None, to_date=None):
     }
     resp = requests.post(url, data=json.dumps(auditJsonRequest),
                          headers=headers)
-
+    
     if not resp.status_code == 200:
         logger.error(
             'Unable to retrieve attestation log from the DARE via connector')
         return None
     else:
-        logger.debug("Audit returned data: " str(resp.json()))
+        logger.debug("Audit returned data: " + str(resp.json()))
         return resp.json()
 
 

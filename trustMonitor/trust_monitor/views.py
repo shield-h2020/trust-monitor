@@ -96,7 +96,7 @@ class RegisterNode(APIView):
                     logger.debug("Node is not registered yet, continue...")
 
                 if 'pcr0' in request.data:
-                    logger.debug("PCR0 specified for new host " + request.data)
+                    logger.debug("PCR0 specified for new host")
                     pcr0_input = request.data['pcr0']
                 else:
                     logger.debug("PCR0 not specified for host")
@@ -118,7 +118,7 @@ class RegisterNode(APIView):
                 return Response(serializer.errors,
                                 status=status.HTTP_400_BAD_REQUEST)
         except Exception as ex:
-            logger.error('Error occurred while registrering node: ' + str(ex))
+            logger.error('Error occurred while registering node: ' + str(ex))
             return Response(
                 str(ex), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

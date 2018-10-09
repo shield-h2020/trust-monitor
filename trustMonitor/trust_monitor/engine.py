@@ -42,17 +42,38 @@ def get_vnsfs_digests_from_store(list_vnfd):
         return False
 
 
-def send_notification_dare(jsonResult):
+def get_audit_log(node_id, from_date=None, to_date=None):
+    logger.info('Retrieve attestation audit from DARE connector')
+
+    url = settings.BASIC_URL_DARE + "/dare_connector/retrieve_audit"
+    auditJsonRequest = {
+        'node_id': node_id,
+        'from_date': from_date,
+        'to_date': to_date
+    }
+    resp = requests.post(url, data=json.dumps(auditJsonRequest),
+                         headers=headers)
+
+    if not resp.status_code == 200:
+        logger.error(
+            'Unable to retrieve attestation log from the DARE via connector')
+        return None
+    else:
+        logger.debug("Audit returned data: " str(resp.json()))
+        return resp.json()
+
+
+def store_audit_log(jsonResult):
     logger.info('Send attestation result to DARE connector')
     # send attestation result to DARE_connector
-    url = settings.BASIC_URL_DARE + "/dare_connector/attest_result"
+    url = settings.BASIC_URL_DARE + "/dare_connector/store_result"
     resp = requests.post(url, data=json.dumps(jsonResult),
                          headers=headers)
     if not resp.status_code == 200:
         logger.error(
-            'Unable to send a notification to the DARE via its connector')
+            'Unable to send attestation log to the DARE via its connector')
     else:
-        logger.info('Notification sent to DARE connector')
+        logger.info('Attestation log sent to DARE connector')
 
 
 def send_notification_dashboard(jsonMessage):
@@ -262,7 +283,7 @@ def attest_nodes(node_list):
         global_status.update(attest_result)
 
     try:
-        send_notification_dare(global_status.json())
+        store_audit_log(global_status.json())
         send_notification_dashboard(global_status.json())
     except Exception as e:
         logger.warning("Notification issue with connectors: " + str(e))

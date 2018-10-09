@@ -192,12 +192,12 @@ class HostAttestationRemediation():
 
 
 class ContainerAttestation():
-    def __init__(self, container='', trust=True, vnsf_id='', vnsfd_name='',
+    def __init__(self, container='', trust=True, vnsfr_id='', vnsfd_id='',
                  ns_id=''):
         self.container = container
         self.trust = trust
-        self.vnsf_id = vnsf_id
-        self.vnsfd_name = vnsfd_name
+        self.vnsfr_id = vnsfr_id
+        self.vnsfd_id = vnsfd_id
         self.ns_id = ns_id
         self.container_remediation = ContainerAttestationRemediation()
 
@@ -208,8 +208,8 @@ class ContainerAttestation():
             self.container_remediation.is_isolate = True
 
         return {
-            'vnsf_id': self.vnsf_id,
-            'vnsfd_name': self.vnsfd_name,
+            'vnsfr_id': self.vnsfr_id,
+            'vnsfd_id': self.vnsfd_id,
             'ns_id': self.ns_id,
             'container': self.container,
             'trust': self.trust,

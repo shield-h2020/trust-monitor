@@ -1,6 +1,8 @@
 ###############################################################################
-# Configuration file for the Dare connector, which queries an API of the DARE
+# Configuration file for the Dare connector, which interacts with the DARE HDFS
 ###############################################################################
 
-# Base URL for the DARE API
-DARE_BASE_URL = 'http://10.101.10.xxx/attest_result'
+# IP address for the DARE HDFS
+DARE_LOCATION = '127.0.0.1'
+# HDFS root pathname for TM audit data
+DARE_ROOT_PATHNAME = "/trust_monitor_audit"

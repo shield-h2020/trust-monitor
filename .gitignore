@@ -108,3 +108,6 @@ ENV/
 
 # db
 db.sqlite3
+
+# audit log
+audit/

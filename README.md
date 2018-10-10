@@ -482,3 +482,33 @@ PA_URL = "https://reverse_proxy/nfvi_attestation_info" # should not be changed
 PA_SEC_TIMEOUT = 3 # can be modified to set a maximum timeout for each
                    # attestation request
 ```
+
+## Audit information
+
+The Trust Monitor embeds an audit logic which allows to store and retrieve
+past attestations for a specific node. The audit logs are stored for convenience
+under the `connectors/dare-connector/audit` dir, which is mounted as a volume
+by Docker Compose script. The audit API is accessible as follows;
+
+```
+https://<TRUST_MONITOR_BASE_URL_OR_IP>/audit/
+```
+
+In order to retrieve the last audit log for a node, just run a `POST` request
+with the following JSON body:
+
+```
+{"node_id":"<registered_node_name>"}
+```
+
+In case you want to retrieve all the logs in a specific timeframe, just access
+the same API with the following POST body:
+
+```
+{"node_id":"<registered_node_name>", "from_date": "<date in YYYY-MM-DD format>", "to_date": "<date in YYYY-MM-DD format>"}
+```
+
+For example, in case you want to retrieve all the logs for a particular day
+you may specify the date of such day as both `from_date` and `to_date` parameters.
+
+Multiple audit logs are retrieved ordered from the newest to the oldest.

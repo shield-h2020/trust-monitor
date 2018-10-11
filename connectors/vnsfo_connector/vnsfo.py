@@ -10,6 +10,7 @@ import requests
 import os
 
 vnsfo_baseurl = vnsfo_settings.VNSFO_BASE_URL
+vnsfo_timeout = int(vnsfo_settings.VNSFO_TIMEOUT)
 app = flask.Flask('vnsfo_connector')
 
 
@@ -76,7 +77,7 @@ def list_vnsfs_vim():
 def getVNSFInformationFromVNSFO(vim_name):
     url = vnsfo_baseurl + "/vnsf/running"
     app.logger.info(url)
-    response = requests.get(url, verify=False)
+    response = requests.get(url, verify=False, timeout=vnsfo_timeout)
     app.logger.debug('Response received from vNSFO API: ' + response.text)
     vnsfsJson = response.json()
     vnf_list = []
@@ -99,7 +100,7 @@ def getVNSFInformationFromVNSFO(vim_name):
 def getNodeInformationFromVNSFO():
     url = vnsfo_baseurl + "/nfvi/node/physical"
     app.logger.info(url)
-    response = requests.get(url, verify=False)
+    response = requests.get(url, verify=False, timeout=vnsfo_timeout)
     app.logger.debug('Response received from vNSFO API: ' + response.text)
     nodesJson = response.json()
     list_node_ip = []

@@ -86,7 +86,7 @@ def getVNSFInformationFromVNSFO(vim_name):
         if (vnsfJson['vim'] == vim_name
                 and vnsfJson['operational_status'] == 'running'):
             vnf_list.append(
-                {'vnfd_id': vnsfJson['vnsfd_id'],
+                {'vnfd_id': vnsfJson['vnfd_id'],
                  'vnfr_id': vnsfJson['vnfr_id'],
                  'ns_name': vnsfJson['ns_name'],
                  'ns_id': vnsfJson['ns_id']})

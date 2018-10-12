@@ -206,6 +206,7 @@ class ContainerAttestation():
         # Add container remediation
         if not self.trust:
             self.container_remediation.is_isolate = True
+            self.container_remediation.is_terminate = True
 
         return {
             'vnsfr_id': self.vnsfr_id,
@@ -222,14 +223,14 @@ class ContainerAttestationRemediation():
             self,
             is_isolate=False,
             is_update=False,
-            is_reboot=False):
+            is_terminate=False):
         self.is_isolate = is_isolate
         self.is_update = is_update
-        self.is_reboot = is_reboot
+        self.is_terminate = is_terminate
 
     def json(self):
         return {
             'isolate': self.is_isolate,
             'update': self.is_update,
-            'reboot': self.is_reboot
+            'terminate': self.is_terminate
         }

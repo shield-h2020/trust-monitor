@@ -48,7 +48,8 @@ def load_attestation_data_from_store(vnfd_id):
         # Compose URL by attaching vnf identifier to base url
         url = store_settings.STORE_BASE_URL + str(vnfd_id)
         app.logger.info(url)
-        response = requests.get(url, verify=False)
+        response = requests.get(url, verify=False,
+                                timeout=int(store_settings.STORE_TIMEOUT))
         logger.debug('Response received from vNSF Store API')
         data = json.load(response.text)
 

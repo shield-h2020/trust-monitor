@@ -53,7 +53,7 @@ def get_audit_log(node_id, from_date=None, to_date=None):
     }
     resp = requests.post(url, data=json.dumps(auditJsonRequest),
                          headers=headers)
-    
+
     if not resp.status_code == 200:
         logger.error(
             'Unable to retrieve attestation log from the DARE via connector')
@@ -427,7 +427,7 @@ def add_to_redis_db(list_vnfd_digest):
                                              "the host")
                         else:
                             logger.debug('The digest is changed. Update redis')
-                            redisDB(key, value)
+                            redisDB.set(key, value)
                             DigestListUpdater.remove_known_digest(data)
                             DigestListUpdater.append_known_digest(value)
                             list_new_digests.append(digest)

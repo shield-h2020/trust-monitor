@@ -179,8 +179,9 @@ class DriverOAT():
         # ensure that other PCRs are still correct
         if not containers_trust and not host_digests_untrusted:
             logger.info("Verify host trust level only")
-            node.pop('vnfs', None)
-            host_result = self.pollHostOAT(node)
+            node_only = dict(node)
+            node_only.pop('vnfs', None)
+            host_result = self.pollHostOAT(node_only)
             result.trust = host_result.trust
             result.time = host_result.time
             result.analysis_status = host_result.analysis_status

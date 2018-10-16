@@ -60,27 +60,37 @@ def get_containers_per_vimemu(info_vim):
                 # in OSM r4: mn.dc1_docker_test_3-1-docker_monitor_vdu-1
                 ns_name = ''
                 vnfd_id = ''
-                if len(container['Names'][0].split(".")) == 4:
-                    # OSM r2
-                    app.logger.debug("OSM release 2: " + str(cont_id))
-                    container_info = container['Names'][0].split(".")
-                    ns_name = container_info[1][container_info[1].index('_')+1:]
-                    vnfd_id = container_info[2].split('__')[0]
-                elif len(container['Names'][0].split("-")) == 4:
-                    # OSM r4
-                    app.logger.debug("OSM release 4: " + str(cont_id))
-                    container_info = container['Names'][0].split("-")
-                    ns_name = container_info[0][container_info[0].index('_')+1:]
-                    vnfd_id = container_info[2].replace('vdu', 'vnfd')
-                else:
-                    raise Exception('Unknown format for container ' + cont_id +
-                                    ' in VIM: ' + info_vim['node'])
+                try:
+                    if len(container['Names'][0].split(".")) == 4:
+                        # OSM r2
+                        app.logger.debug("OSM release 2: " + str(cont_id))
+                        container_info = container['Names'][0].split(".")
+                        ns_name = (container_info[1]
+                                   [container_info[1].index('_')+1:])
+                        vnfd_id = container_info[2].split('__')[0]
+                        list_containers.append(
+                            {'id': cont_id,
+                             'image': image,
+                             'ns_name': ns_name,
+                             'vnfd_id': vnfd_id})
+                    elif len(container['Names'][0].split("-")) == 4:
+                        # OSM r4
+                        app.logger.debug("OSM release 4: " + str(cont_id))
+                        container_info = container['Names'][0].split("-")
+                        ns_name = (container_info[0]
+                                   [container_info[0].index('_')+1:])
+                        vnfd_id = container_info[2].replace('vdu', 'vnfd')
+                        list_containers.append(
+                            {'id': cont_id,
+                             'image': image,
+                             'ns_name': ns_name,
+                             'vnfd_id': vnfd_id})
 
-                list_containers.append(
-                    {'id': cont_id,
-                     'image': image,
-                     'ns_name': ns_name,
-                     'vnfd_id': vnfd_id})
+                except Exception as parse_err:
+                    app.logger.error(str(parse_err))
+                    app.logger.debug('Unknown format for container ' + cont_id +
+                                     ' in VIM: ' + info_vim['node'] +
+                                     ' (skipping)')
 
         if not list_containers:
             app.logger.warning('No docker running in VIM ' + info_vim['node'])

@@ -90,9 +90,7 @@ class RegisterNode(APIView):
                         "Node with IP address " + host_query.address +
                         " already registered as " + host_query.hostName)
 
-                    serialized_host = HostSerializer(host_query, many=False)
-
-                    return Response(serialized_host, status=status.HTTP_200_OK)
+                    return Response(status=status.HTTP_200_OK)
                 except Host.DoesNotExist:
                     logger.debug("Node is not registered yet, continue...")
 

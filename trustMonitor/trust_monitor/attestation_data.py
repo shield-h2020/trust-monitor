@@ -1,18 +1,42 @@
-from datetime import datetime
+from datetime import datetime, timedelta, tzinfo
 import logging
 
 logger = logging.getLogger('django')
 
+ZERO = timedelta(0)
+
+
+# A UTC class. Python 2.7 does not support by default explicit timezone as
+# tzinfo object in datetime.utcnow() method
+# The example below is from tzinfo documentation
+# (http://docs.python.org/2/library/datetime.html#tzinfo-objects)
+class UTC(tzinfo):
+    """UTC"""
+
+    def utcoffset(self, dt):
+        return ZERO
+
+    def tzname(self, dt):
+        return "UTC"
+
+    def dst(self, dt):
+        return ZERO
+
+
+# Global UTC object
+utc = UTC()
+
+
+def get_current_time():
+    return datetime.now(utc).strftime("%Y-%m-%d %H:%M:%S.%f %z %Z")
+
 
 class AttestationStatus():
     def __init__(self):
-        self.vtime = self.get_current_time()
+        self.vtime = get_current_time()
         self.trust = True
         self.list_host_attestation = []
         self.list_sdn_attestation = []
-
-    def get_current_time(self):
-        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     def getTime(self):
         return self.vtime
@@ -42,7 +66,7 @@ class AttestationStatus():
             logger.error(
                 "Impossible to update attestation status (unknown)")
             self.trust = False
-        self.vtime = self.get_current_time()
+        self.vtime = get_current_time()
 
     def json(self):
         # Create list of JSON HostAttestation objects
@@ -99,11 +123,8 @@ class HostAttestation():
         self.analysis_extra_info = analysis_extra_info
         self.analysis_containers = analysis_containers
         self.driver = driver
-        self.time = self.get_current_time()
+        self.time = get_current_time()
         self.host_remediation = HostAttestationRemediation()
-
-    def get_current_time(self):
-        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     def json(self):
 

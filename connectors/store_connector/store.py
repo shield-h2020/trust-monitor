@@ -50,7 +50,7 @@ def load_attestation_data_from_store(vnfd_id):
         app.logger.info(url)
         response = requests.get(url, verify=False,
                                 timeout=int(store_settings.STORE_TIMEOUT))
-        logger.debug('Response received from vNSF Store API')
+        app.logger.debug('Response received from vNSF Store API')
         data = json.load(response.text)
 
     app.logger.info(data)

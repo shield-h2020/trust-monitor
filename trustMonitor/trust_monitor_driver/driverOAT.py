@@ -177,14 +177,11 @@ class DriverOAT():
                 logger.info("One or more digests in host found untrusted")
         # if no host binaries are untrusted, query the host trust level to
         # ensure that other PCRs are still correct
-        if not containers_trust and not host_digests_untrusted:
-            logger.info("Verify host trust level only")
-            node_only = dict(node)
-            node_only.pop('vnfs', None)
-            host_result = self.pollHostOAT(node_only)
-            result.trust = host_result.trust
-            result.time = host_result.time
-            result.analysis_status = host_result.analysis_status
+        if not containers_trust and not host_digests_untrusted \
+                and result.analysis_status == 0:
+            logger.info("If no containers found untrusted, and runtime " +
+                        "analysis completed (after PCR check), host is trusted")
+            result.trust = True
 
         return result
 

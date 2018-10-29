@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, tzinfo
 import logging
+import threading
 
 logger = logging.getLogger('django')
 
@@ -33,6 +34,7 @@ def get_current_time():
 
 class AttestationStatus():
     def __init__(self):
+        self.lock = threading.Lock()
         self.vtime = get_current_time()
         self.trust = True
         self.list_host_attestation = []
@@ -45,28 +47,30 @@ class AttestationStatus():
         return self.trust
 
     def update(self, attestation):
-        if isinstance(attestation, HostAttestation):
-            logger.debug("Update global attestation status with Host info")
-            if attestation.analysis_containers:
-                for container_attestation in attestation.analysis_containers:
-                    if not container_attestation.trust:
-                        logger.debug("Trust status is False (container)")
-                        self.trust = False
-            if not attestation.trust:
-                logger.debug("Trust status is False (host)")
+
+        with self.lock:
+            if isinstance(attestation, HostAttestation):
+                logger.debug("Update global attestation status with Host info")
+                if attestation.analysis_containers:
+                    for cont_attestation in attestation.analysis_containers:
+                        if not cont_attestation.trust:
+                            logger.debug("Trust status is False (container)")
+                            self.trust = False
+                if not attestation.trust:
+                    logger.debug("Trust status is False (host)")
+                    self.trust = False
+                self.list_host_attestation.append(attestation)
+            elif isinstance(attestation, SDNAttestation):
+                logger.debug("Update global attestation status with SDN info")
+                if not attestation.trust:
+                    logger.debug("Trust status changed to False")
+                    self.trust = False
+                self.list_sdn_attestation.append(attestation)
+            else:
+                logger.error(
+                    "Impossible to update attestation status (unknown)")
                 self.trust = False
-            self.list_host_attestation.append(attestation)
-        elif isinstance(attestation, SDNAttestation):
-            logger.debug("Update global attestation status with SDN info")
-            if not attestation.trust:
-                logger.debug("Trust status changed to False")
-                self.trust = False
-            self.list_sdn_attestation.append(attestation)
-        else:
-            logger.error(
-                "Impossible to update attestation status (unknown)")
-            self.trust = False
-        self.vtime = get_current_time()
+            self.vtime = get_current_time()
 
     def json(self):
         # Create list of JSON HostAttestation objects

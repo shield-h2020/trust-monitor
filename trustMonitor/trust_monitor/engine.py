@@ -15,7 +15,7 @@ from trust_monitor_driver.driverOpenCIT import DriverCIT
 from trust_monitor_driver.driverHPE import DriverHPE
 from trust_monitor_driver.driverConstants import *
 from trust_monitor.attestation_data import AttestationStatus
-
+import threading
 
 headers = {'content-type': 'application/json'}
 
@@ -270,18 +270,31 @@ def attest_nodes(node_list):
 
     logger.info('Received attestation request for: ' + str(node_list))
     global_status = AttestationStatus()
+
+    t_attestations = []
     for node in node_list:
         host = Host.objects.get(hostName=node['node'])
         if host.driver == CIT_DRIVER or host.driver == OAT_DRIVER:
-            attest_result = attest_compute(node)
+            t_host = threading.Thread(target=attest_compute, args=[node,
+                                      global_status])
+            t_attestations.append(t_host)
+            # attest_result = attest_compute(node)
         # Append HPE nodes to list_hpe object
         elif host.driver == HPE_DRIVER:
-            attest_result = attest_sdn_component(node)
+            # attest_result = attest_sdn_component(node)
+            t_sdn = threading.Thread(target=attest_sdn_component, args=[node,
+                                     global_status])
+            t_attestations.append(t_sdn)
         else:
             logger.warning('Node %s has unknown driver' % host.hostName)
 
-        global_status.update(attest_result)
+    for t in t_attestations:
+        t.start()
 
+    for t in t_attestations:
+        t.join()
+
+    logger.debug('Global attestation status created.')
     try:
         store_audit_log(global_status.json())
         send_notification_dashboard(global_status.json())
@@ -291,11 +304,12 @@ def attest_nodes(node_list):
     return global_status
 
 
-def attest_sdn_component(node):
-    return DriverHPE().pollHost(node)
+def attest_sdn_component(node, global_status):
+    result = DriverHPE().pollHost(node)
+    global_status.update(result)
 
 
-def attest_compute(node):
+def attest_compute(node, global_status):
     host = Host.objects.get(hostName=node['node'])
     logger.debug('Node found with ip %s' % host.address)
 
@@ -357,7 +371,7 @@ def attest_compute(node):
         # One or more VNFs have been attested for the compute node
         remove_vnfs_measures_from_db(list_vnfd_digest)
 
-    return result
+    global_status.update(result)
 
 ###############################################################################
 # Interaction with Redis database (for known digests)

@@ -1,6 +1,6 @@
-FROM python:2-alpine
+FROM lensa/hdfs3:latest
 
-LABEL maintainer="Giovanni Trivigno <s231595@studenti.polito.it>"
+LABEL maintainer="Marco De Benedictis <marco.debenedictis@polito.it>"
 
 RUN mkdir /logs
 

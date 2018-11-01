@@ -8,24 +8,38 @@ import requests
 from pathlib import Path
 from dateutil.parser import parse
 import io
+import hdfs3
+import hdfs3.compatibility
 
 app = flask.Flask('dare_connector')
 
 
+def get_hdfs_connect_handle():
+    fs = hdfs3.HDFileSystem(host=dare_settings.DARE_LOCATION,
+                            port=dare_settings.DARE_PORT,
+                            user=dare_settings.DARE_USER)
+    # If dir is already in HDFS, this command does not raise error
+    fs.mkdir(dare_settings.DARE_ROOT_PATHNAME)
+    return fs
+
+
 def get_results(node, from_date=None, to_date=None):
+
+    # Get HDFS handle
+    hdfs = get_hdfs_connect_handle()
 
     audit_list = []
     p = Path(dare_settings.DARE_ROOT_PATHNAME)
     node_path = p / node
 
     # First. check that the node has some audits
-    if not node_path.exists():
+    if not hdfs.exists(str(node_path)):
         app.logger.debug('DARE audit component directory does not exist yet.')
-
-    if node_path.exists() and node_path.is_dir():
+    else:
 
         # If so, get all the subdirs with date for the node
-        p_subdirs = [x for x in node_path.iterdir() if x.is_dir()]
+        p_subdirs = [x['name'] for x in hdfs.ls(str(node_path))
+                     if x['kind'] == 'directory']
 
         # If a start, stop date was provided, filter them
         if from_date and to_date:
@@ -34,14 +48,13 @@ def get_results(node, from_date=None, to_date=None):
             # full path (the date)
             # and compare the date to start and stop dates
             p_subdirs = filter(lambda x:
-                               (str(x)[-10:] >= from_date
-                                and str(x)[-10:] <= to_date), p_subdirs)
+                               (x[-10:] >= from_date
+                                and x[-10:] <= to_date), p_subdirs)
 
         else:
             # Else, only the latest subdir must be retrieved
             app.logger.debug("Dates not provided for audit.")
             p_subdirs = sorted(p_subdirs,
-                               key=lambda x: str(x),
                                reverse=True)
             p_subdirs = [p_subdirs[0]]
 
@@ -49,9 +62,9 @@ def get_results(node, from_date=None, to_date=None):
         for p_subdir in p_subdirs:
 
             # First, sort the files in order
-            json_files = [x for x in p_subdir.iterdir() if x.is_file()]
+            json_files = [x['name'] for x in hdfs.ls(str(p_subdir))
+                          if x['kind'] == 'file']
             json_files = sorted(json_files,
-                                key=lambda x: str(x),
                                 reverse=True)
             # In case of no date span, easy solution: get only latest file
             if not from_date and not to_date:
@@ -59,8 +72,8 @@ def get_results(node, from_date=None, to_date=None):
 
             # For each file, load its json content and append in audit list
             for json_file in json_files:
-                app.logger.debug('JSON file open for read: ' + str(json_file))
-                with open(str(json_file)) as data_file:
+                app.logger.debug('JSON file open for read: ' + json_file)
+                with hdfs.open(json_file) as data_file:
                     audit_list.append(json.load(data_file))
 
     # Return audit list
@@ -68,33 +81,37 @@ def get_results(node, from_date=None, to_date=None):
 
 
 def save_to_path(data, node, time):
+
+    # Get HDFS handle
+    hdfs = get_hdfs_connect_handle()
+
     p = Path(dare_settings.DARE_ROOT_PATHNAME)
     # Fuzzy parser to accept timestring even if unknown tokens inside
     dateobj = parse(time, fuzzy=True)
     date_dir = dateobj.strftime("%Y-%m-%d")
 
-    # If path does not exist, create the dir for the node
-    if not p.exists():
-        app.logger.debug('DARE audit root directory does not exist. Create now')
-        p.mkdir(parents=True)
+    node_dir = p / node
+    if not hdfs.exists(str(node_dir)):
+        hdfs.mkdir(str(node_dir))
 
     # The audit dir for the node has dirs with dates
     audit_dir = p / node / date_dir
     app.logger.debug('Saving attestation result for ' + node +
                      ' in directory ' + str(audit_dir))
-    if not audit_dir.exists():
-        audit_dir.mkdir(parents=True)
+    if not hdfs.exists(str(audit_dir)):
+        hdfs.mkdir(str(audit_dir))
     # Each filename in each date dir has the node name, the full date string
     # from attestation result and the .json extension
 
-    filename = node + dateobj.strftime("%Y-%m-%d_%H:%M:%S.%f") + '.json'
+    filename = node + dateobj.strftime("%Y-%m-%d_%H-%M-%S.%f") + '.json'
     audit_filepath = audit_dir / filename
     app.logger.debug('Saving attestation result in file ' + filename)
     # Create empty file
-    audit_filepath.touch()
-    # Dump JSON data in it
-    with io.open(str(audit_filepath), 'w', encoding="utf-8") as logfile:
-        logfile.write(unicode(json.dumps(data, ensure_ascii=False)))
+    hdfs.touch(str(audit_filepath))
+    with hdfs.open(str(audit_filepath), 'wb') as audit_file:
+        audit_file.write(unicode(json.dumps(data, ensure_ascii=False)))
+
+    app.logger.debug('File created in HDFS')
 
 
 # Data is a JSON representation of AttestationStatus

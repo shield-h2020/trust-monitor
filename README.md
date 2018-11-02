@@ -2,7 +2,7 @@
 
 This repository contains the software required to instantiate the Trust
 Monitor application. This application can be used together with a Reference
-Database and one or more attestation runtimes to provide load-time/run-time
+Database and one or more attestation run-times to provide load-time/run-time
 attestation of compute platforms and SDN network equipment via TPM.
 
 ## Directory structure
@@ -13,11 +13,12 @@ trust-monitor
 │   ├── dare_connector
 │   ├── dashboard_connector
 │   ├── database
-│   ├── manage_osm_connector
 │   ├── store_connector
 │   ├── vimemu_connector
 │   └── vnsfo_connector
 ├── digestsHelper
+│   ├── digests.json
+│   └── upload_known_digests.py
 ├── docker-compose.yml
 ├── LICENSE
 ├── logs
@@ -31,6 +32,9 @@ trust-monitor
 │   ├── html
 │   └── ssl
 ├── scheduler
+│   ├── docker
+│   ├── Dockerfile
+│   └── requirements.txt
 └── trustMonitor
     ├── docker
     ├── Dockerfile
@@ -47,6 +51,9 @@ files of the Django app, comprising:
 * `trust_monitor_django`: the django execution files of the app
 * `trust_monitor_driver`: the files required to integrate attestation drivers
 
+The director `connectors` includes the sources of all the connectors to other
+SHIELD components (DARE, Dashboard, VIM, vNSFO, white-list database).
+
 The directory `reverseProxy` includes the sources of a Docker image
 that instantiates a reverse proxy for the TM app.
 
@@ -60,21 +67,13 @@ The directory `digestsHelper` includes an helper script for including additional
 digests in the whitelist database.
 
 **N.B:** The Trust Monitor application requires several other components to work
-properly, as its behaviour is not standalone. First of all, the TM app
-requires a running instance of Apache Cassandra database hosting the
-whitelist measurements for code in a specific schema. Moreover, the Trust Monitor
-application interacts with other components (such as Open Source MANO) via APIs,
-so these components should be in place (and properly configured in the app
-settings) to be reachable by the TM app.
+properly, as its attestation workflow is integrated within the SHIELD platform.
+Moreover, the TM app requires a running instance of Apache Cassandra database
+hosting the whitelist measurements for code in a specific schema.
 
-## (Suggested) Docker Compose automated installation
+## Docker Compose automated installation
 
-The TM can be deployed in a Docker environment as three three containers:
-- an **nginx** SSL-aware reverse proxy  that exposes its ports (80,443) on the
-host
-- a Django app with the Trust Monitor app on `localhost`
-- a Python `SimpleHTTPServer` to serve the application static files on
-    `localhost`
+The TM can be deployed in a Docker environment as a multi-container application.
 
 ### Install Docker Engine and Compose
 
@@ -100,32 +99,28 @@ sudo chmod +x /usr/local/bin/docker-compose
 [Install using the repository]: https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-using-the-repository
 [Install Compose]: https://docs.docker.com/compose/install/#install-compose
 
-### Configure the applications
+### Configure the TM Django application
 
-In the `reverseProxy` application, note that you need to provide a key and certificate chain under
-`ssl` before executing the Docker Compose script (e.g. via `make-ssl-cert` tool on Ubuntu). The name of the chain and private key depends on the virtual host configured under `reverseProxy/conf/conf.d/test.ra.trust.monitor.vhost.conf`,
+In the `reverseProxy` application, note that you need to provide a key and
+certificate chain under `ssl` before executing the Docker Compose script
+(e.g. via `make-ssl-cert` tool on Ubuntu). The name of the chain and private key
+depends on the virtual host configured under
+`reverseProxy/conf/conf.d/test.ra.trust.monitor.vhost.conf`,
 which default to:
 
 * `ssl/private/test.ra.trust.monitor.key`
 * `ssl/certs/test.ra.trust.monitor.chain`
 
-In the `TrustMonitor` application, edit the `trust_monitor_django/settings.py` file to your
-needs. At minimum, you need to configure:
+In the `TrustMonitor` application, edit the `trust_monitor_django/settings.py`
+file to your needs. At minimum, you need to configure:
 
 ```
 CASSANDRA_LOCATION = $WHITELIST_DB_IP
 CASSANDRA_PORT = '9160'
 ```
 
-where Apache Cassandra IP address refers to the instance running the whitelist
+where Apache Cassandra IP address refers to the instance running the white-list
 database and the default port is `9160`.
-
-Finally, before running the Docker Compose build script you need to export
-the following environment variables in the same shell:
-
-```
-# export OSM_IP=<ip of Open Source MANO instance>
-```
 
 ### Run the Trust Monitor Docker environment
 
@@ -146,98 +141,41 @@ command from a different shall (still from the root directory):
 The output should be similar to the following:
 
 ```
-Name                                 Command               State                    Ports                  
+Name                               Command                State                      Ports                  
 -----------------------------------------------------------------------------------------------------------------------------
-ra-trust-monitor_reverse_proxy_1            nginx -g daemon off;             Up      0.0.0.0:443->443/tcp, 0.0.0.0:80->80/tcp
-ra-trust-monitor_tm_dare_connector_1        python dare.py                   Up      5000/tcp                                
-ra-trust-monitor_tm_dashboard_connector_1   python dashboard.py              Up      5000/tcp                                
-ra-trust-monitor_tm_database_redis_1        docker-entrypoint.sh redis ...   Up      6379/tcp                                
-ra-trust-monitor_tm_django_app_1            docker/entrypoint.sh             Up      8000/tcp                                
-ra-trust-monitor_tm_static_serve_1          docker/entrypoint.sh             Up      8000/tcp                                
-ra-trust-monitor_tm_store_connector_1       python store.py                  Up      5000/tcp                                
-ra-trust-monitor_tm_vimemu_connector_1      python vimemu.py                 Up      5000/tcp                                
-ra-trust-monitor_tm_vnsfo_connector_1       python vnsfo.py                  Up      5000/tcp     
+trust-monitor_reverse_proxy_1            nginx -g daemon off;             Up         0.0.0.0:443->443/tcp, 0.0.0.0:80->80/tcp
+trust-monitor_tm_dare_connector_1        python dare.py                   Up         5000/tcp                                
+trust-monitor_tm_dashboard_connector_1   python dashboard.py              Up         5000/tcp                                
+trust-monitor_tm_database_redis_1        docker-entrypoint.sh redis ...   Up         6379/tcp                                
+trust-monitor_tm_django_app_1            docker/entrypoint.sh             Up         8000/tcp                                
+trust-monitor_tm_scheduler_1             python ./docker/scheduler.py     Up                                          
+trust-monitor_tm_static_serve_1          docker/entrypoint.sh             Up         8000/tcp                                
+trust-monitor_tm_store_connector_1       python store.py                  Up         5000/tcp                                
+trust-monitor_tm_vimemu_connector_1      python vimemu.py                 Up         5000/tcp                                
+trust-monitor_tm_vnsfo_connector_1       python vnsfo.py                  Up         5000/tcp                                
 ```
-
-## (Alternative) manual installation
-
-In alternative to Docker Compose, you can install the Trust Monitor app as a
-standard Django application.
-
-### Software requirements
-
-The application can be installed on a Ubuntu 16.04.3 LTS host (other distros
-have not been tested, but the installation process may be adapted).
-
-The application requirements can be installed by issuing the following
-commands:
-
-```bash
-sudo apt install python-pip graphviz-dev
-sudo pip install -r trustMonitor/requirements.txt
-```
-
-### Installation steps
-
-1. Create `local_setting.py` file under the `trustMonitor/trust_monitor_django`
-directory to specify configuration parameters.
-For example:
-
-```python
-LOCAL_SETTINGS = True
-from settings import *
-CASSANDRA_LOCATION = 'ip_address_cassandra_db'
-CASSANDRA_PORT = '9160'
-```
-
-**N.B:** You can modify the SQLite database path in the `DATABASES`
-variable as well.
-
-2. Create the database used by the TM to register a new node or insert a
-known digest.
-
-```bash
-cd trustMonitor/
-python manage.py makemigrations trust_monitor
-python manage.py migrate
-```
-
-To check if the compilation was successful, you can test everything by
-running:
-
-```bash
-python manage.py runserver
-```
-
-This command runs the trust-monitor on localhost. If the output is similar
-to:
-
-```bash
-Performing system checks...
-
-System check identified no issues (0 silenced).
-February 21, 2018 - 12:04:00
-Django version 1.11.10, using settings 'trust_monitor.settings'
-Starting development server at http://127.0.0.1:8000/
-Quit the server with CONTROL-C.
-```
-
-The creation was successful.
 
 ## Create your attestation driver
 
-If you want to create your own attestation driver, you need to create a file called for example `testDriver.py` to insert in the path `trustMonitor/trust_monitor_driver`.
+If you want to create your own attestation driver, you need to create a file
+called for example `testDriver.py` to insert in the path
+`trustMonitor/trust_monitor_driver`.
 The `testDriver.py` file must have a class containing at least three methods inside it:
 - `registerNode` used to register the node at the attestation framework to which the driver refers;
 - `getStatus` used to verify whether the attestation framework is active or not;
 - `pollHost`used to start the RA process with the attestation framework.
 
-It is recommended to specify the identifier of the driver in the `trustMonitor/trust_monitor_driver/driverConstants.py` file.
+It is recommended to specify the identifier of the driver in the
+`trustMonitor/trust_monitor_driver/driverConstants.py` file.
 
-It may also be necessary to create within the path `trustMonitor/trust_monitor/verifier` a file called for example `parsingTest.py` used to parsify the measurements coming from the attestation framework, in case you want to
-leverage the whitelist-based verification for compute nodes.
+It may also be necessary to create within the path
+`trustMonitor/trust_monitor/verifier` a file called for example `parsingTest.py`
+used to parse the measurements coming from the attestation framework, in case
+you want to leverage the white-list-based verification for compute nodes.
 
-The various measures must have mandatory information to be treated as objects of the IMARecord class in ordert to be included in the list of digest that are analyzed during the integrity verification procedure.
+The various measures must have mandatory information to be treated as objects of
+the IMARecord class in order to be included in the list of digest that are
+analyzed during the integrity verification procedure.
 For example:
 
 ```
@@ -257,7 +195,8 @@ file_line = (pcr + " " + template_digest + " " +
 IMARecord(file_line)
 ```
 
-When the IMARecord class is called the list of Digest that is considered during the attestation process is expanded.
+When the IMARecord class is called the list of Digest that is considered during
+the attestation process is expanded.
 In the `engine.py` file you have to properly configure the attestation
 callback to query the driver.
 In the `views.py` file you have to properly configure the registration option
@@ -265,8 +204,10 @@ for your new driver.
 
 ## Log messages
 
-Each developed docker container contains a file that takes care of capturing all log message from the application, this file is accessible from the container within the path ``/logs/``.
-It is possible to export the volume containing the logs going to specify in the `docker-compose.yml` file for the desired container the volumes fiels specifying where to seve the information.
+Each developed docker container contains a file that takes care of capturing all
+log message from the application, this file is accessible from the container within the path ``/logs/``.
+
+Example below:
 
 ```bash
 tm_store_connector:
@@ -295,8 +236,9 @@ hereby named `OAT_TM_DIR`.
 
 ### Configuration on the TM app
 
-It is essential to add the certificate that identifies the OAT Verifier within the directory `trustMonitor/docker/ssl/certs`. To do so, you can either download the certificate
-from the web application via browser or run the following command:
+It is essential to add the certificate that identifies the OAT Verifier within
+the directory `trustMonitor/docker/ssl/certs`. To do so, you can either download
+the certificate from the web application via browser or run the following command:
 
 ```
 # openssl s_client -showcerts -connect $OAT_VERIFIER_IP:8443 </dev/null 2>/dev/null|openssl x509 -outform PEM > trustMonitor/docker/ssl/certs/ra-oat-verifier.pem
@@ -330,7 +272,8 @@ OAT_LOCATION = "192.168.1.10"
 
 ## Connect the TM to an Open CIT attestation framework
 
-You need to configure the following variables in the `trustMonitor/trust_monitor_driver/driverCITSettings.py`
+You need to configure the following variables in the
+`trustMonitor/trust_monitor_driver/driverCITSettings.py`
 file by adding the IP address of the CIT Attestation Server and the credentials
 to access its REST API.
 
@@ -479,16 +422,16 @@ PA_SEC_INTERVAL = ... # set an integer greater than 0 to enable periodic
 
 PA_URL = "https://reverse_proxy/nfvi_attestation_info" # should not be changed
 
-PA_SEC_TIMEOUT = 3 # can be modified to set a maximum timeout for each
+PA_SEC_TIMEOUT = 30 # can be modified to set a maximum timeout for each
                    # attestation request
 ```
 
 ## Audit information
 
 The Trust Monitor embeds an audit logic which allows to store and retrieve
-past attestations for a specific node. The audit logs are stored for convenience
-under the `connectors/dare-connector/audit` dir, which is mounted as a volume
-by Docker Compose script. The audit API is accessible as follows;
+past attestations for a specific node. Data is stored on HDFS for availability
+and resiliency, with configuration available under `connectors/dare_connector/dare_settings.py`.
+The audit API is accessible as follows;
 
 ```
 https://<TRUST_MONITOR_BASE_URL_OR_IP>/audit/
@@ -501,7 +444,7 @@ with the following JSON body:
 {"node_id":"<registered_node_name>"}
 ```
 
-In case you want to retrieve all the logs in a specific timeframe, just access
+In case you want to retrieve all the logs in a specific time-frame, just access
 the same API with the following POST body:
 
 ```

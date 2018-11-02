@@ -2,24 +2,17 @@ version: '3'
 
 services:
 
-  #tm_rabbitmq_server:
-  #  image: ra/connectors/rabbitmq_server
-  #  build: ./connectors/dashboard_connector/server-rabbitmq
-
   tm_dashboard_connector:
     image: ra/connectors/dashboard_connector
     build: ./connectors/dashboard_connector
     volumes:
       - './logs/tm_connectors/dashboard:/logs'
-#    links:
-#      - tm_rabbitmq_server:rabbitmq_server
 
   tm_dare_connector:
     image: ra/connectors/dare_connector
     build: ./connectors/dare_connector
     volumes:
       - './logs/tm_connectors/dare:/logs'
-      - './connectors/dare_connector/audit:/trust_monitor_audit'
 
   tm_store_connector:
     image: ra/connectors/store_connector

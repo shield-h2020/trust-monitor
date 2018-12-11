@@ -147,7 +147,7 @@ class HostAttestation():
 
         if not self.trust:
             self.host_remediation.is_isolate = True
-            self.host_remediation.is_reboot = True
+            self.host_remediation.is_terminate = True
 
         return {
             'node': self.node,
@@ -202,17 +202,14 @@ class HostAttestationRemediation():
     def __init__(
             self,
             is_isolate=False,
-            is_update=False,
-            is_reboot=False):
+            is_terminate=False):
         self.is_isolate = is_isolate
-        self.is_update = is_update
-        self.is_reboot = is_reboot
+        self.is_terminate = is_terminate
 
     def json(self):
         return {
             'isolate': self.is_isolate,
-            'reboot': self.is_reboot,
-            'update': self.is_update
+            'terminate': self.is_terminate
         }
 
 
@@ -247,15 +244,12 @@ class ContainerAttestationRemediation():
     def __init__(
             self,
             is_isolate=False,
-            is_update=False,
             is_terminate=False):
         self.is_isolate = is_isolate
-        self.is_update = is_update
         self.is_terminate = is_terminate
 
     def json(self):
         return {
             'isolate': self.is_isolate,
-            'update': self.is_update,
             'terminate': self.is_terminate
         }

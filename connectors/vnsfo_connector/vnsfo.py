@@ -12,6 +12,7 @@ import os
 vnsfo_baseurl = vnsfo_settings.VNSFO_BASE_URL
 vnsfo_timeout = int(vnsfo_settings.VNSFO_TIMEOUT)
 app = flask.Flask('vnsfo_connector')
+osm_release = vnsfo_settings.OSM_RELEASE
 
 
 @app.route("/vnsfo_connector", methods=["GET"])
@@ -75,7 +76,7 @@ def list_vnsfs_vim():
 # get list of running vnf for a specific VIM
 # returns a list of JSON objects with same fields as VNSFO API
 def getVNSFInformationFromVNSFO(vim_name):
-    url = vnsfo_baseurl + "/vnsf/running"
+    url = vnsfo_baseurl + "/vnsf/" + osm_release + "running"
     app.logger.info(url)
     response = requests.get(url, verify=False, timeout=vnsfo_timeout)
     app.logger.debug('Response received from vNSFO API: ' + response.text)

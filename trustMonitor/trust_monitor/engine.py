@@ -273,21 +273,24 @@ def attest_nodes(node_list):
 
     t_attestations = []
     for node in node_list:
-        host = Host.objects.get(hostName=node['node'])
-        if host.driver == CIT_DRIVER or host.driver == OAT_DRIVER:
-            t_host = threading.Thread(target=attest_compute, args=[node,
-                                      global_status])
-            t_attestations.append(t_host)
-            # attest_result = attest_compute(node)
-        # Append HPE nodes to list_hpe object
-        elif host.driver == HPE_DRIVER:
-            # attest_result = attest_sdn_component(node)
-            t_sdn = threading.Thread(target=attest_sdn_component, args=[node,
-                                     global_status])
-            t_attestations.append(t_sdn)
-        else:
-            logger.warning('Node %s has unknown driver' % host.hostName)
-
+        try:
+            host = Host.objects.get(hostName=node['node'])
+            if host.driver == CIT_DRIVER or host.driver == OAT_DRIVER:
+                t_host = threading.Thread(target=attest_compute, args=[node,
+                                        global_status])
+                t_attestations.append(t_host)
+                # attest_result = attest_compute(node)
+            # Append HPE nodes to list_hpe object
+            elif host.driver == HPE_DRIVER:
+                # attest_result = attest_sdn_component(node)
+                t_sdn = threading.Thread(target=attest_sdn_component, args=[node,
+                                        global_status])
+                t_attestations.append(t_sdn)
+            else:
+                logger.warning('Node %s has unknown driver' % host.hostName)
+        except Host.DoesNotExist:
+            logger.warning('Node %s is not registered, skipping...' % node['node'])
+    
     for t in t_attestations:
         t.start()
 
